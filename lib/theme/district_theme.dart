@@ -73,4 +73,12 @@ class Districts {
   );
 
   static final all = <DistrictTheme>[digital, neighborhood, money, career];
+
+  /// Looks up a district by its string id (matches the "district" field
+  /// on a scenario) - used by the dev picker to theme a scenario it
+  /// doesn't otherwise know about. Falls back to [digital] rather than
+  /// throwing, since this only ever runs in debug tooling.
+  static DistrictTheme byId(String id) {
+    return all.firstWhere((d) => d.id == id, orElse: () => digital);
+  }
 }

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../widgets/call_modal.dart';
 import '../widgets/choice_tile.dart';
 import '../widgets/document_modal.dart';
 import '../widgets/email_card.dart';
@@ -12,6 +13,7 @@ import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
 import '../widgets/player_bubble.dart';
 import '../widgets/score_feedback.dart';
+import '../widgets/sms_card.dart';
 import 'outcome_screen.dart';
 
 /// One entry in the on-screen transcript: a persona message, the player's
@@ -51,7 +53,11 @@ enum _EntryKind { persona, player, feedback }
 class ScenarioScreen extends StatefulWidget {
   final DistrictTheme district;
 
-  const ScenarioScreen({super.key, required this.district});
+  /// Optional - when set (from the dev picker), fetches this specific
+  /// scenario instead of the backend's default. Omit for normal play.
+  final String? scenarioIdOverride;
+
+  const ScenarioScreen({super.key, required this.district, this.scenarioIdOverride});
 
   @override
   State<ScenarioScreen> createState() => _ScenarioScreenState();
@@ -74,7 +80,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   @override
   void initState() {
     super.initState();
-    _scenarioFuture = _api.fetchTodayScenario().then((scenario) {
+    _scenarioFuture = _api.fetchTodayScenario(scenarioId: widget.scenarioIdOverride).then((scenario) {
       setState(() {
         _scenario = scenario;
         _currentNodeId = scenario.node.nodeId;
@@ -134,7 +140,18 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           // to the generic "reveal choices below" path.
           await _selectChoice(selected);
           return;
-        // Future modal types (e.g. "call") get their own case here.
+        case 'call':
+          final selectedCall = await showCallModal(
+            context,
+            district: widget.district,
+            data: presentation.data,
+            message: node.message,
+            choices: node.choices,
+          );
+          if (!mounted || selectedCall == null) return;
+          await _selectChoice(selectedCall);
+          return;
+        // Future modal types get their own case here.
       }
     }
 
@@ -224,6 +241,16 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         sender: data['sender'] as String? ?? scenario.persona.name,
         senderEmail: data['senderEmail'] as String? ?? '',
         subject: data['subject'] as String? ?? '',
+        body: entry.text,
+      );
+    }
+
+    if (presentation != null && presentation.type == 'sms') {
+      final data = presentation.data;
+      return SmsCard(
+        district: widget.district,
+        sender: data['sender'] as String? ?? scenario.persona.name,
+        senderNumber: data['senderNumber'] as String? ?? '',
         body: entry.text,
       );
     }

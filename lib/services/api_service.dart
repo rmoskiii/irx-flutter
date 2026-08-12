@@ -2,11 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/scenario.dart';
 
-/// Thin wrapper around the irl-backend HTTP API. Two calls: fetch the
-/// scenario's opening node, and resolve a choice - which may return either
-/// the next node (conversation continues) or a terminal outcome. Swap
-/// [baseUrl] via --dart-define=API_BASE_URL=... when deploying somewhere
-/// other than localhost.
+/// Thin wrapper around the irl-backend HTTP API. Swap [baseUrl] via
+/// --dart-define=API_BASE_URL=... when deploying somewhere other than
+/// localhost.
 class ApiService {
   final String baseUrl;
 
@@ -17,14 +15,31 @@ class ApiService {
               defaultValue: 'http://localhost:4000',
             );
 
-  Future<Scenario> fetchTodayScenario() async {
-    final uri = Uri.parse('$baseUrl/api/scenarios/today');
+  /// Fetches the opening node for a scenario. [scenarioId] is optional -
+  /// omit it to get the backend's default, or pass one (e.g. from the dev
+  /// picker) to jump straight into a specific scenario.
+  Future<Scenario> fetchTodayScenario({String? scenarioId}) async {
+    final uri = Uri.parse('$baseUrl/api/scenarios/today').replace(
+      queryParameters: scenarioId != null ? {'scenarioId': scenarioId} : null,
+    );
     final response = await http.get(uri);
 
     if (response.statusCode != 200) {
-      throw ApiException('Could not load today\'s scenario (${response.statusCode}).');
+      throw ApiException('Could not load scenario (${response.statusCode}).');
     }
     return Scenario.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  /// Dev/testing convenience: every scenario currently on disk.
+  Future<List<ScenarioSummary>> fetchScenarioList() async {
+    final uri = Uri.parse('$baseUrl/api/scenarios/list');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      throw ApiException('Could not load scenario list (${response.statusCode}).');
+    }
+    final body = jsonDecode(response.body) as List;
+    return body.map((s) => ScenarioSummary.fromJson(s as Map<String, dynamic>)).toList();
   }
 
   /// [runningTotal] is what the player has accumulated so far THIS

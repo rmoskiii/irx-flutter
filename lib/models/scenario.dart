@@ -208,3 +208,28 @@ class TurnBreakdown {
     required this.reasons,
   });
 }
+/// Summary of a scenario, as returned by GET /api/scenarios/list. Powers
+/// the dev-only scenario picker - deliberately minimal, just enough to
+/// show a list and let you pick one.
+class ScenarioSummary {
+  final String id;
+  final String title;
+  final String district;
+  final int difficulty;
+
+  const ScenarioSummary({
+    required this.id,
+    required this.title,
+    required this.district,
+    required this.difficulty,
+  });
+
+  factory ScenarioSummary.fromJson(Map<String, dynamic> json) {
+    return ScenarioSummary(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      district: json['district'] as String,
+      difficulty: json['difficulty'] as int,
+    );
+  }
+}

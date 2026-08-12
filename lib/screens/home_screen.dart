@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -5,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
 import '../widgets/district_card.dart';
 import '../widgets/stat_pill.dart';
+import 'dev_scenario_picker_screen.dart';
 import 'scenario_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -30,38 +32,65 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Interactive Reality Xperience',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    Row(
+                      children: [
+                        Text(
+                          'Good evening.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        // Debug-only - never ships in a release build.
+                        // Purely a way to jump into any scenario on disk
+                        // while building/testing them.
+                        if (kDebugMode) ...[
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const DevScenarioPickerScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.build_outlined, size: 14),
+                            label: const Text('Dev'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.textMuted,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'IRX',
+                      'What will life throw at you today?',
                       style: Theme.of(context).textTheme.displayLarge,
                     ),
                     const SizedBox(height: 24),
-                    StatPill(
-                      icon: Icons.psychology_outlined,
-                      label: 'SAVVY',
-                      description: 'Understand what is really happening',
-                      value: stats.savvy,
-                      accent: AppColors.violet,
-                    ),
-                    const SizedBox(height: 10),
-                    StatPill(
-                      icon: Icons.balance_outlined,
-                      label: 'INTEGRITY',
-                      description: 'Stay true to what\'s right under pressure',
-                      value: stats.integrity,
-                      accent: AppColors.amber,
-                    ),
-                    const SizedBox(height: 10),
-                    StatPill(
-                      icon: Icons.bolt_outlined,
-                      label: 'STREET SMARTS',
-                      description: 'Good judgment to protect yourself',
-                      value: stats.streetSmarts,
-                      accent: AppColors.success,
+                    Row(
+                      children: [
+                        StatPill(
+                          icon: Icons.psychology_outlined,
+                          label: 'SAVVY',
+                          value: stats.savvy,
+                          accent: AppColors.violet,
+                          description: 'Spot what\'s real',
+                        ),
+                        const SizedBox(width: 10),
+                        StatPill(
+                          icon: Icons.balance_outlined,
+                          label: 'INTEGRITY',
+                          value: stats.integrity,
+                          accent: AppColors.amber,
+                          description: 'Do what\'s right',
+                        ),
+                        const SizedBox(width: 10),
+                        StatPill(
+                          icon: Icons.bolt_outlined,
+                          label: 'STREET SMARTS',
+                          value: stats.streetSmarts,
+                          accent: AppColors.success,
+                          description: 'Handle it well',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 32),
                     Text(
