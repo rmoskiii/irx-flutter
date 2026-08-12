@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../widgets/score_feedback.dart';
 import '../widgets/score_ring.dart';
 
 class OutcomeScreen extends StatelessWidget {
@@ -14,12 +15,17 @@ class OutcomeScreen extends StatelessWidget {
   final String consequence;
   final String outcomeExplanation;
 
+  /// Every turn played, in order - the "how we got here" ledger. This is
+  /// what makes the final totals feel earned rather than asserted.
+  final List<TurnBreakdown> breakdown;
+
   const OutcomeScreen({
     super.key,
     required this.district,
     required this.totalScores,
     required this.consequence,
     required this.outcomeExplanation,
+    required this.breakdown,
   });
 
   String get _headline {
@@ -33,7 +39,7 @@ class OutcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // A rough 0-100 read on the whole playthrough, purely for the ring
-    // display - the real signal is the per-stat breakdown below it.
+    // display - the real signal is the breakdown below it.
     final displayScore = (50 + totalScores.total).clamp(0, 100);
 
     return Scaffold(
@@ -62,7 +68,47 @@ class OutcomeScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 28),
+                if (breakdown.isNotEmpty) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'HOW WE GOT HERE',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final turn in breakdown)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '\u201c${turn.choiceLabel}\u201d',
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          ScoreFeedback(
+                            scores: turn.scores,
+                            reasons: turn.reasons,
+                            district: district,
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'TOTALS',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 _StatDeltaRow(label: 'SAVVY', value: totalScores.savvy),
                 _StatDeltaRow(label: 'INTEGRITY', value: totalScores.integrity),
                 _StatDeltaRow(label: 'STREET SMARTS', value: totalScores.streetSmarts),

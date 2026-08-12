@@ -6,23 +6,47 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
 import '../widgets/choice_tile.dart';
+import '../widgets/document_modal.dart';
+import '../widgets/email_card.dart';
+import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
 import '../widgets/player_bubble.dart';
+import '../widgets/score_feedback.dart';
 import 'outcome_screen.dart';
 
-/// One entry in the on-screen transcript. Either a persona message or the
-/// player's own chosen response - rendered in order as the conversation
-/// grows across turns.
+/// One entry in the on-screen transcript: a persona message, the player's
+/// own response, or a transparency note explaining what just changed and
+/// why. [presentation] (persona entries only) decides whether a persona
+/// entry renders as the default chat bubble or an inline type like
+/// [EmailCard].
 class _TranscriptEntry {
-  final bool isPlayer;
+  final _EntryKind kind;
   final String text;
   final bool showHeader;
+  final ScenarioPresentation? presentation;
+  final StatDelta? scores;
+  final Map<String, String>? reasons;
 
-  const _TranscriptEntry.persona(this.text, {this.showHeader = false}) : isPlayer = false;
+  const _TranscriptEntry.persona(this.text, {this.showHeader = false, this.presentation})
+      : kind = _EntryKind.persona,
+        scores = null,
+        reasons = null;
+
   const _TranscriptEntry.player(this.text)
-      : isPlayer = true,
-        showHeader = false;
+      : kind = _EntryKind.player,
+        showHeader = false,
+        presentation = null,
+        scores = null,
+        reasons = null;
+
+  const _TranscriptEntry.feedback(this.scores, this.reasons)
+      : kind = _EntryKind.feedback,
+        text = '',
+        showHeader = false,
+        presentation = null;
 }
+
+enum _EntryKind { persona, player, feedback }
 
 class ScenarioScreen extends StatefulWidget {
   final DistrictTheme district;
@@ -41,6 +65,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   Scenario? _scenario;
 
   final List<_TranscriptEntry> _transcript = [];
+  final List<TurnBreakdown> _breakdown = [];
   List<ScenarioChoice> _currentChoices = [];
   String _currentNodeId = '';
   StatDelta _runningTotal = const StatDelta();
@@ -53,9 +78,15 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       setState(() {
         _scenario = scenario;
         _currentNodeId = scenario.node.nodeId;
-        _currentChoices = scenario.node.choices;
-        _transcript.add(_TranscriptEntry.persona(scenario.node.message, showHeader: true));
+        _transcript.add(_TranscriptEntry.persona(
+          scenario.node.message,
+          showHeader: true,
+          presentation: scenario.node.presentation,
+        ));
       });
+      // The very first node could theoretically be a modal beat too, so
+      // route it through the same reveal path as any other turn.
+      _revealNode(scenario.node);
       return scenario;
     });
   }
@@ -75,6 +106,41 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         curve: Curves.easeOutCubic,
       );
     });
+  }
+
+  /// Decides how a newly-arrived node's choices get revealed. A plain node
+  /// (or an inline-styled one, like "email") shows its choices
+  /// immediately. A node flagged `presentation.modal` holds its choices
+  /// back until the player has closed the modal - so they can't respond to
+  /// a document or payment request they haven't actually "seen" yet.
+  Future<void> _revealNode(ScenarioNode node) async {
+    final presentation = node.presentation;
+
+    if (presentation != null && presentation.modal) {
+      switch (presentation.type) {
+        case 'document':
+          await showDocumentModal(context, district: widget.district, data: presentation.data);
+          break;
+        case 'payment_request':
+          final selected = await showPaymentRequestModal(
+            context,
+            district: widget.district,
+            data: presentation.data,
+            choices: node.choices,
+          );
+          if (!mounted || selected == null) return;
+          // The response was made from inside the modal itself - hand it
+          // straight to the normal choice flow instead of falling through
+          // to the generic "reveal choices below" path.
+          await _selectChoice(selected);
+          return;
+        // Future modal types (e.g. "call") get their own case here.
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _currentChoices = node.choices);
+    _scrollToBottom();
   }
 
   Future<void> _selectChoice(ScenarioChoice choice) async {
@@ -97,6 +163,19 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       if (!mounted) return;
       context.read<AppState>().applyResult(result.scores);
       _runningTotal = _runningTotal + result.scores;
+      _breakdown.add(TurnBreakdown(
+        choiceLabel: choice.label,
+        scores: result.scores,
+        reasons: result.reasons,
+      ));
+
+      setState(() {
+        // Transparency note lands immediately, before the conversation
+        // continues - the point is to build trust turn by turn, not save
+        // the explanation for a summary screen at the very end.
+        _transcript.add(_TranscriptEntry.feedback(result.scores, result.reasons));
+      });
+      _scrollToBottom();
 
       if (result.terminal) {
         Navigator.of(context).push(
@@ -106,26 +185,56 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
               totalScores: _runningTotal,
               consequence: result.consequence ?? '',
               outcomeExplanation: result.outcomeExplanation ?? '',
+              breakdown: List.unmodifiable(_breakdown),
             ),
           ),
         );
         return;
       }
 
+      final nextNode = result.node!;
       setState(() {
-        _currentNodeId = result.node!.nodeId;
-        _currentChoices = result.node!.choices;
-        _transcript.add(_TranscriptEntry.persona(result.node!.message));
+        _currentNodeId = nextNode.nodeId;
+        _transcript.add(_TranscriptEntry.persona(
+          nextNode.message,
+          presentation: nextNode.presentation,
+        ));
       });
       _scrollToBottom();
+      setState(() => _submitting = false);
+      await _revealNode(nextNode);
+      return;
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Something went wrong: $error')),
       );
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted && _submitting) setState(() => _submitting = false);
     }
+  }
+
+  Widget _buildPersonaEntry(BuildContext context, Scenario scenario, _TranscriptEntry entry) {
+    final presentation = entry.presentation;
+
+    if (presentation != null && presentation.type == 'email') {
+      final data = presentation.data;
+      return EmailCard(
+        district: widget.district,
+        sender: data['sender'] as String? ?? scenario.persona.name,
+        senderEmail: data['senderEmail'] as String? ?? '',
+        subject: data['subject'] as String? ?? '',
+        body: entry.text,
+      );
+    }
+
+    return PersonaBubble(
+      district: widget.district,
+      name: scenario.persona.name,
+      role: scenario.persona.role,
+      message: entry.text,
+      showHeader: entry.showHeader,
+    );
   }
 
   @override
@@ -193,15 +302,18 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                             for (final entry in _transcript)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
-                                child: entry.isPlayer
-                                    ? PlayerBubble(district: district, label: entry.text)
-                                    : PersonaBubble(
-                                        district: district,
-                                        name: scenario.persona.name,
-                                        role: scenario.persona.role,
-                                        message: entry.text,
-                                        showHeader: entry.showHeader,
-                                      ),
+                                child: switch (entry.kind) {
+                                  _EntryKind.player =>
+                                    PlayerBubble(district: district, label: entry.text),
+                                  _EntryKind.feedback => ScoreFeedback(
+                                      scores: entry.scores!,
+                                      reasons: entry.reasons!,
+                                      district: district,
+                                      compact: true,
+                                    ),
+                                  _EntryKind.persona =>
+                                    _buildPersonaEntry(context, scenario, entry),
+                                },
                               ),
                             if (_submitting)
                               Padding(

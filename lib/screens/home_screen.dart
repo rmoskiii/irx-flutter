@@ -31,12 +31,12 @@ class HomeScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Good evening.',
+                      'Interactive Reality Xperience',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'What will life throw at you today?',
+                      'IRX',
                       style: Theme.of(context).textTheme.displayLarge,
                     ),
                     const SizedBox(height: 24),
