@@ -7,7 +7,22 @@ import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
 import '../widgets/choice_tile.dart';
 import '../widgets/persona_bubble.dart';
+import '../widgets/player_bubble.dart';
 import 'outcome_screen.dart';
+
+/// One entry in the on-screen transcript. Either a persona message or the
+/// player's own chosen response - rendered in order as the conversation
+/// grows across turns.
+class _TranscriptEntry {
+  final bool isPlayer;
+  final String text;
+  final bool showHeader;
+
+  const _TranscriptEntry.persona(this.text, {this.showHeader = false}) : isPlayer = false;
+  const _TranscriptEntry.player(this.text)
+      : isPlayer = true,
+        showHeader = false;
+}
 
 class ScenarioScreen extends StatefulWidget {
   final DistrictTheme district;
@@ -20,34 +35,89 @@ class ScenarioScreen extends StatefulWidget {
 
 class _ScenarioScreenState extends State<ScenarioScreen> {
   final ApiService _api = ApiService();
+  final ScrollController _scrollController = ScrollController();
 
   late Future<Scenario> _scenarioFuture;
+  Scenario? _scenario;
+
+  final List<_TranscriptEntry> _transcript = [];
+  List<ScenarioChoice> _currentChoices = [];
+  String _currentNodeId = '';
+  StatDelta _runningTotal = const StatDelta();
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    _scenarioFuture = _api.fetchTodayScenario();
+    _scenarioFuture = _api.fetchTodayScenario().then((scenario) {
+      setState(() {
+        _scenario = scenario;
+        _currentNodeId = scenario.node.nodeId;
+        _currentChoices = scenario.node.choices;
+        _transcript.add(_TranscriptEntry.persona(scenario.node.message, showHeader: true));
+      });
+      return scenario;
+    });
   }
 
-  Future<void> _selectChoice(Scenario scenario, ScenarioChoice choice) async {
-    if (_submitting) return;
-    setState(() => _submitting = true);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  Future<void> _selectChoice(ScenarioChoice choice) async {
+    if (_submitting || _scenario == null) return;
+    setState(() {
+      _submitting = true;
+      _transcript.add(_TranscriptEntry.player(choice.label));
+      _currentChoices = [];
+    });
+    _scrollToBottom();
 
     try {
       final result = await _api.submitChoice(
-        scenarioId: scenario.id,
+        scenarioId: _scenario!.scenarioId,
+        nodeId: _currentNodeId,
         choiceId: choice.id,
+        runningTotal: _runningTotal,
       );
 
       if (!mounted) return;
       context.read<AppState>().applyResult(result.scores);
+      _runningTotal = _runningTotal + result.scores;
 
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => OutcomeScreen(district: widget.district, result: result),
-        ),
-      );
+      if (result.terminal) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => OutcomeScreen(
+              district: widget.district,
+              totalScores: _runningTotal,
+              consequence: result.consequence ?? '',
+              outcomeExplanation: result.outcomeExplanation ?? '',
+            ),
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _currentNodeId = result.node!.nodeId;
+        _currentChoices = result.node!.choices;
+        _transcript.add(_TranscriptEntry.persona(result.node!.message));
+      });
+      _scrollToBottom();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,7 +154,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                 return _ErrorState(district: district, error: '${snapshot.error}');
               }
 
-              final scenario = snapshot.data!;
+              final scenario = _scenario!;
 
               return Column(
                 children: [
@@ -113,32 +183,53 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                   ),
                   Expanded(
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 460),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            PersonaBubble(
-                              district: district,
-                              name: scenario.persona.name,
-                              role: scenario.persona.role,
-                              message: scenario.opening,
-                            ),
-                            const SizedBox(height: 28),
-                            Text(
-                              'HOW DO YOU RESPOND?',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                            const SizedBox(height: 12),
-                            ...scenario.choices.map(
-                              (choice) => ChoiceTile(
-                                label: choice.label,
-                                district: district,
-                                disabled: _submitting,
-                                onTap: () => _selectChoice(scenario, choice),
+                            for (final entry in _transcript)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: entry.isPlayer
+                                    ? PlayerBubble(district: district, label: entry.text)
+                                    : PersonaBubble(
+                                        district: district,
+                                        name: scenario.persona.name,
+                                        role: scenario.persona.role,
+                                        message: entry.text,
+                                        showHeader: entry.showHeader,
+                                      ),
                               ),
-                            ),
+                            if (_submitting)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: district.accent,
+                                  ),
+                                ),
+                              ),
+                            if (_currentChoices.isNotEmpty) ...[
+                              Text(
+                                'HOW DO YOU RESPOND?',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                              const SizedBox(height: 12),
+                              ..._currentChoices.map(
+                                (choice) => ChoiceTile(
+                                  label: choice.label,
+                                  district: district,
+                                  disabled: _submitting,
+                                  onTap: () => _selectChoice(choice),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

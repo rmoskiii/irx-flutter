@@ -40,29 +40,28 @@ class HomeScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.displayLarge,
                     ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        StatPill(
-                          icon: Icons.psychology_outlined,
-                          label: 'SAVVY',
-                          value: stats.savvy,
-                          accent: AppColors.violet,
-                        ),
-                        const SizedBox(width: 10),
-                        StatPill(
-                          icon: Icons.balance_outlined,
-                          label: 'INTEGRITY',
-                          value: stats.integrity,
-                          accent: AppColors.amber,
-                        ),
-                        const SizedBox(width: 10),
-                        StatPill(
-                          icon: Icons.bolt_outlined,
-                          label: 'STREET SMARTS',
-                          value: stats.streetSmarts,
-                          accent: AppColors.success,
-                        ),
-                      ],
+                    StatPill(
+                      icon: Icons.psychology_outlined,
+                      label: 'SAVVY',
+                      description: 'Understand what is really happening',
+                      value: stats.savvy,
+                      accent: AppColors.violet,
+                    ),
+                    const SizedBox(height: 10),
+                    StatPill(
+                      icon: Icons.balance_outlined,
+                      label: 'INTEGRITY',
+                      description: 'Stay true to what\'s right under pressure',
+                      value: stats.integrity,
+                      accent: AppColors.amber,
+                    ),
+                    const SizedBox(height: 10),
+                    StatPill(
+                      icon: Icons.bolt_outlined,
+                      label: 'STREET SMARTS',
+                      description: 'Good judgment to protect yourself',
+                      value: stats.streetSmarts,
+                      accent: AppColors.success,
                     ),
                     const SizedBox(height: 32),
                     Text(

@@ -30,36 +30,59 @@ class ScenarioChoice {
   }
 }
 
+/// A single point in the conversation: the persona's message plus the
+/// choices available in response to it. Both /today and mid-conversation
+/// /respond calls return one of these, so the client always renders the
+/// same shape regardless of how deep into a scenario it is.
+class ScenarioNode {
+  final String nodeId;
+  final String message;
+  final List<ScenarioChoice> choices;
+
+  const ScenarioNode({
+    required this.nodeId,
+    required this.message,
+    required this.choices,
+  });
+
+  factory ScenarioNode.fromJson(Map<String, dynamic> json) {
+    return ScenarioNode(
+      nodeId: json['nodeId'] as String,
+      message: json['message'] as String,
+      choices: (json['choices'] as List)
+          .map((c) => ScenarioChoice.fromJson(c as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+/// Root response from GET /api/scenarios/today - scenario metadata plus
+/// the starting node.
 class Scenario {
-  final String id;
+  final String scenarioId;
   final String title;
   final String district;
   final int difficulty;
   final Persona persona;
-  final String opening;
-  final List<ScenarioChoice> choices;
+  final ScenarioNode node;
 
   const Scenario({
-    required this.id,
+    required this.scenarioId,
     required this.title,
     required this.district,
     required this.difficulty,
     required this.persona,
-    required this.opening,
-    required this.choices,
+    required this.node,
   });
 
   factory Scenario.fromJson(Map<String, dynamic> json) {
     return Scenario(
-      id: json['id'] as String,
+      scenarioId: json['scenarioId'] as String,
       title: json['title'] as String,
       district: json['district'] as String,
       difficulty: json['difficulty'] as int,
       persona: Persona.fromJson(json['persona'] as Map<String, dynamic>),
-      opening: json['opening'] as String,
-      choices: (json['choices'] as List)
-          .map((c) => ScenarioChoice.fromJson(c as Map<String, dynamic>))
-          .toList(),
+      node: ScenarioNode.fromJson(json['node'] as Map<String, dynamic>),
     );
   }
 }
@@ -72,9 +95,9 @@ class StatDelta {
   final int integrity;
 
   const StatDelta({
-    required this.savvy,
-    required this.streetSmarts,
-    required this.integrity,
+    this.savvy = 0,
+    this.streetSmarts = 0,
+    this.integrity = 0,
   });
 
   factory StatDelta.fromJson(Map<String, dynamic> json) {
@@ -85,25 +108,50 @@ class StatDelta {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'savvy': savvy,
+        'streetSmarts': streetSmarts,
+        'integrity': integrity,
+      };
+
+  StatDelta operator +(StatDelta other) {
+    return StatDelta(
+      savvy: savvy + other.savvy,
+      streetSmarts: streetSmarts + other.streetSmarts,
+      integrity: integrity + other.integrity,
+    );
+  }
+
   int get total => savvy + streetSmarts + integrity;
 }
 
-class ScenarioResult {
-  final String reaction;
+/// Response from POST /api/scenarios/respond for a single turn. Either
+/// [node] is set (conversation continues) or [terminal] is true and
+/// [consequence]/[outcomeExplanation] are set (scenario is over).
+class TurnResult {
   final StatDelta scores;
-  final String outcomeExplanation;
+  final bool terminal;
+  final ScenarioNode? node;
+  final String? consequence;
+  final String? outcomeExplanation;
 
-  const ScenarioResult({
-    required this.reaction,
+  const TurnResult({
     required this.scores,
-    required this.outcomeExplanation,
+    required this.terminal,
+    this.node,
+    this.consequence,
+    this.outcomeExplanation,
   });
 
-  factory ScenarioResult.fromJson(Map<String, dynamic> json) {
-    return ScenarioResult(
-      reaction: json['reaction'] as String,
+  factory TurnResult.fromJson(Map<String, dynamic> json) {
+    return TurnResult(
       scores: StatDelta.fromJson(json['scores'] as Map<String, dynamic>),
-      outcomeExplanation: json['outcomeExplanation'] as String,
+      terminal: json['terminal'] as bool,
+      node: json['node'] != null
+          ? ScenarioNode.fromJson(json['node'] as Map<String, dynamic>)
+          : null,
+      consequence: json['consequence'] as String?,
+      outcomeExplanation: json['outcomeExplanation'] as String?,
     );
   }
 }

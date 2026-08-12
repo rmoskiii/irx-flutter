@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/scenario.dart';
 
-/// Thin wrapper around the irl-backend HTTP API. Deliberately just two
-/// calls - matches the backend's minimal v0 surface. Swap [baseUrl] via
-/// --dart-define=API_BASE_URL=... when deploying somewhere other than
-/// localhost.
+/// Thin wrapper around the irl-backend HTTP API. Two calls: fetch the
+/// scenario's opening node, and resolve a choice - which may return either
+/// the next node (conversation continues) or a terminal outcome. Swap
+/// [baseUrl] via --dart-define=API_BASE_URL=... when deploying somewhere
+/// other than localhost.
 class ApiService {
   final String baseUrl;
 
@@ -26,9 +27,15 @@ class ApiService {
     return Scenario.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
-  Future<ScenarioResult> submitChoice({
+  /// [runningTotal] is what the player has accumulated so far THIS
+  /// playthrough (unclamped, summed client-side) - the backend stays
+  /// stateless and only needs it to pick the right outcome tier on a
+  /// terminal turn.
+  Future<TurnResult> submitChoice({
     required String scenarioId,
+    required String nodeId,
     required String choiceId,
+    required StatDelta runningTotal,
     String? testerId,
   }) async {
     final uri = Uri.parse('$baseUrl/api/scenarios/respond');
@@ -37,7 +44,9 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'scenarioId': scenarioId,
+        'nodeId': nodeId,
         'choiceId': choiceId,
+        'runningTotal': runningTotal.toJson(),
         'testerId': testerId,
       }),
     );
@@ -45,7 +54,7 @@ class ApiService {
     if (response.statusCode != 200) {
       throw ApiException('Could not submit your response (${response.statusCode}).');
     }
-    return ScenarioResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return TurnResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 }
 

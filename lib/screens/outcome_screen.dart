@@ -6,23 +6,35 @@ import '../widgets/score_ring.dart';
 
 class OutcomeScreen extends StatelessWidget {
   final DistrictTheme district;
-  final ScenarioResult result;
 
-  const OutcomeScreen({super.key, required this.district, required this.result});
+  /// Sum of every turn's score delta across the whole playthrough, not
+  /// just the final choice - so a 3-turn conversation shows credit (or
+  /// blame) for the whole path, not only the last step.
+  final StatDelta totalScores;
+  final String consequence;
+  final String outcomeExplanation;
+
+  const OutcomeScreen({
+    super.key,
+    required this.district,
+    required this.totalScores,
+    required this.consequence,
+    required this.outcomeExplanation,
+  });
 
   String get _headline {
-    final total = result.scores.total;
-    if (total >= 50) return 'Good call.';
-    if (total >= 15) return 'Solid instinct.';
+    final total = totalScores.total;
+    if (total >= 60) return 'Excellent judgment.';
+    if (total >= 25) return 'Good call.';
     if (total >= 0) return 'You got through it.';
     return 'That one stung.';
   }
 
   @override
   Widget build(BuildContext context) {
-    // A rough 0-100 read on the decision, purely for the ring display -
-    // the real signal is the per-stat breakdown below it.
-    final displayScore = (50 + result.scores.total).clamp(0, 100);
+    // A rough 0-100 read on the whole playthrough, purely for the ring
+    // display - the real signal is the per-stat breakdown below it.
+    final displayScore = (50 + totalScores.total).clamp(0, 100);
 
     return Scaffold(
       body: SafeArea(
@@ -46,17 +58,17 @@ class OutcomeScreen extends StatelessWidget {
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Text(
-                    result.reaction,
+                    consequence,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
                 const SizedBox(height: 20),
-                _StatDeltaRow(label: 'SAVVY', value: result.scores.savvy),
-                _StatDeltaRow(label: 'INTEGRITY', value: result.scores.integrity),
-                _StatDeltaRow(label: 'STREET SMARTS', value: result.scores.streetSmarts),
+                _StatDeltaRow(label: 'SAVVY', value: totalScores.savvy),
+                _StatDeltaRow(label: 'INTEGRITY', value: totalScores.integrity),
+                _StatDeltaRow(label: 'STREET SMARTS', value: totalScores.streetSmarts),
                 const SizedBox(height: 24),
                 Text(
-                  result.outcomeExplanation,
+                  outcomeExplanation,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),

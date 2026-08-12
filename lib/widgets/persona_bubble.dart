@@ -8,12 +8,19 @@ class PersonaBubble extends StatelessWidget {
   final String role;
   final String message;
 
+  /// Only the first message in a conversation shows the avatar/name/role
+  /// header - later turns just show the bubble, so a multi-turn
+  /// conversation doesn't repeat "Adewale Okoro, Legal Representative"
+  /// four times in a row.
+  final bool showHeader;
+
   const PersonaBubble({
     super.key,
     required this.district,
     required this.name,
     required this.role,
     required this.message,
+    this.showHeader = true,
   });
 
   @override
@@ -32,27 +39,29 @@ class PersonaBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: district.accent.withOpacity(0.15),
-                child: Icon(Icons.person_outline, size: 16, color: district.accent),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: Theme.of(context).textTheme.titleMedium),
-                  Text(role, style: district.labelFont().copyWith(
-                        fontSize: 11,
-                        color: AppColors.textMuted,
-                      )),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          if (showHeader) ...[
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: district.accent.withOpacity(0.15),
+                  child: Icon(Icons.person_outline, size: 16, color: district.accent),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: Theme.of(context).textTheme.titleMedium),
+                    Text(role, style: district.labelFont().copyWith(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        )),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
