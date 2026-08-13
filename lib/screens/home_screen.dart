@@ -12,6 +12,21 @@ import 'scenario_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  // Hardcoded for now, matching what's actually built (Prince + Bank for
+  // Digital, Secret + Favor for Neighbourhood). Once the home screen
+  // fetches GET /api/scenarios/list, this becomes a real count instead of
+  // a maintained constant - flagged as a near-term follow-up.
+  String _scenarioCountLabel(String districtId) {
+    switch (districtId) {
+      case 'digital':
+        return '2 scenarios live';
+      case 'neighborhood':
+        return '2 scenarios live';
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = context.watch<AppState>();
@@ -103,12 +118,14 @@ class HomeScreen extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: DistrictCard(
                           district: district,
-                          progress: district.available ? 0.4 : 0,
+                          statusLabel: _scenarioCountLabel(district.id),
                           onTap: district.available
                               ? () => Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          ScenarioScreen(district: district),
+                                      builder: (_) => ScenarioScreen(
+                                        district: district,
+                                        scenarioIdOverride: district.anchorScenarioId,
+                                      ),
                                     ),
                                   )
                               : null,

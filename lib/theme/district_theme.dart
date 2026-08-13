@@ -16,6 +16,23 @@ class DistrictTheme {
   final TextStyle Function() labelFont;
   final bool available;
 
+  /// Optional path to a real illustrated asset (e.g. 'assets/districts/
+  /// digital.png'), added via pubspec.yaml's flutter/assets list. When
+  /// set, DistrictCard renders it as the backdrop. When null (true for
+  /// every district today - no art pipeline exists yet), DistrictCard
+  /// falls back to a procedural glow-and-silhouette backdrop built from
+  /// this theme's own accent/icon, so cards still look considered without
+  /// needing commissioned art. Drop in a real asset later and the card
+  /// picks it up with no other code changes.
+  final String? imagePath;
+
+  /// The scenario id this district opens into when tapped from the home
+  /// hub - e.g. "the_prince" for Digital, "the_secret" for Neighbourhood.
+  /// Without this, tapping any district card would fall back to the
+  /// backend's single default scenario regardless of which district was
+  /// actually tapped.
+  final String? anchorScenarioId;
+
   const DistrictTheme({
     required this.id,
     required this.name,
@@ -25,6 +42,8 @@ class DistrictTheme {
     required this.backgroundGradient,
     required this.labelFont,
     this.available = false,
+    this.imagePath,
+    this.anchorScenarioId,
   });
 }
 
@@ -34,12 +53,13 @@ class Districts {
   static final digital = DistrictTheme(
     id: 'digital',
     name: 'Digital District',
-    tagline: 'Spot the scam before it spots you',
+    tagline: 'Spot scams. Outsmart online threats.',
     icon: Icons.terminal_rounded,
     accent: const Color(0xFF5EE6D0),
     backgroundGradient: const [Color(0xFF081410), Color(0xFF04211C), Color(0xFF02100D)],
     labelFont: () => GoogleFonts.spaceMono(),
     available: true,
+    anchorScenarioId: 'the_prince',
   );
 
   static final neighborhood = DistrictTheme(
@@ -50,6 +70,8 @@ class Districts {
     accent: const Color(0xFFFFC15E),
     backgroundGradient: const [Color(0xFF241608), Color(0xFF1C1006), Color(0xFF120A03)],
     labelFont: () => GoogleFonts.dmSerifDisplay(fontStyle: FontStyle.italic),
+    available: true,
+    anchorScenarioId: 'the_secret',
   );
 
   static final money = DistrictTheme(

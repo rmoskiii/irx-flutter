@@ -12,6 +12,8 @@ import '../widgets/email_card.dart';
 import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
 import '../widgets/player_bubble.dart';
+import '../widgets/scene_card.dart';
+import '../widgets/scene_modal.dart';
 import '../widgets/score_feedback.dart';
 import '../widgets/sms_card.dart';
 import 'outcome_screen.dart';
@@ -151,6 +153,17 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           if (!mounted || selectedCall == null) return;
           await _selectChoice(selectedCall);
           return;
+        case 'scene':
+          final selectedScene = await showSceneModal(
+            context,
+            district: widget.district,
+            data: presentation.data,
+            message: node.message,
+            choices: node.choices,
+          );
+          if (!mounted || selectedScene == null) return;
+          await _selectChoice(selectedScene);
+          return;
         // Future modal types get their own case here.
       }
     }
@@ -252,6 +265,19 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         sender: data['sender'] as String? ?? scenario.persona.name,
         senderNumber: data['senderNumber'] as String? ?? '',
         body: entry.text,
+      );
+    }
+
+    if (presentation != null && presentation.type == 'scene') {
+      final data = presentation.data;
+      final character = data['character'] as Map<String, dynamic>? ?? {};
+      return SceneCard(
+        district: widget.district,
+        characterName: character['name'] as String? ?? scenario.persona.name,
+        characterRole: character['role'] as String? ?? scenario.persona.role,
+        mood: character['mood'] as String? ?? '',
+        location: data['location'] as String? ?? '',
+        message: entry.text,
       );
     }
 
