@@ -66,17 +66,25 @@ class ScenarioNode {
   final ScenarioPresentation? presentation;
   final List<ScenarioChoice> choices;
 
+  /// How long the character "takes to respond" before this node's content
+  /// appears — "short" (800ms), "medium" (1500ms), "long" (2500ms), or
+  /// null (instant). Only used in Neighbourhood-style scenarios where the
+  /// pacing should feel conversational, not scripted.
+  final String? reactionDelay;
+
   const ScenarioNode({
     required this.nodeId,
     required this.message,
     required this.choices,
     this.presentation,
+    this.reactionDelay,
   });
 
   factory ScenarioNode.fromJson(Map<String, dynamic> json) {
     return ScenarioNode(
       nodeId: json['nodeId'] as String,
       message: json['message'] as String,
+      reactionDelay: json['reactionDelay'] as String?,
       presentation: json['presentation'] != null
           ? ScenarioPresentation.fromJson(json['presentation'] as Map<String, dynamic>)
           : null,

@@ -46,30 +46,30 @@ class SceneModal extends StatelessWidget {
             children: [
               // Base - near-black so the aurora reads as light against
               // dark, not washed out.
-              Container(color: const Color(0xFF08080A)),
+              Container(color: Color.fromRGBO(8, 8, 10, 1.0 - moodStyle.atmosphereBrightness)),
 
               // Aurora backdrop - large soft-focus color blobs, blurred
               // into a wash. This is the "looks expensive" background
               // layer - a mesh-gradient effect built from plain shapes.
               Positioned.fill(
                 child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+                  imageFilter: ImageFilter.blur(sigmaX: moodStyle.atmosphereBlur, sigmaY: moodStyle.atmosphereBlur),
                   child: Stack(
                     children: [
                       Positioned(
                         top: -60,
                         left: -40,
-                        child: _AuroraBlob(color: moodStyle.primary, size: 260),
+                        child: _AuroraBlob(color: moodStyle.primary, size: 260, opacity: moodStyle.atmosphereOpacity),
                       ),
                       Positioned(
                         bottom: -80,
                         right: -60,
-                        child: _AuroraBlob(color: moodStyle.secondary, size: 280),
+                        child: _AuroraBlob(color: moodStyle.secondary, size: 280, opacity: moodStyle.atmosphereOpacity),
                       ),
                       Positioned(
                         top: 120,
                         right: -40,
-                        child: _AuroraBlob(color: district.accent, size: 180),
+                        child: _AuroraBlob(color: district.accent, size: 180, opacity: moodStyle.atmosphereOpacity),
                       ),
                     ],
                   ),
@@ -187,8 +187,9 @@ class SceneModal extends StatelessWidget {
 class _AuroraBlob extends StatelessWidget {
   final Color color;
   final double size;
+  final double opacity;
 
-  const _AuroraBlob({required this.color, required this.size});
+  const _AuroraBlob({required this.color, required this.size, this.opacity = 0.55});
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +198,7 @@ class _AuroraBlob extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withOpacity(0.55),
+        color: color.withOpacity(opacity),
       ),
     );
   }

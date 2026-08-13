@@ -16,13 +16,18 @@ import '../widgets/scene_card.dart';
 import '../widgets/scene_modal.dart';
 import '../widgets/score_feedback.dart';
 import '../widgets/sms_card.dart';
+import '../widgets/typing_indicator.dart';
 import 'outcome_screen.dart';
 
-/// One entry in the on-screen transcript: a persona message, the player's
-/// own response, or a transparency note explaining what just changed and
-/// why. [presentation] (persona entries only) decides whether a persona
-/// entry renders as the default chat bubble or an inline type like
-/// [EmailCard].
+/// Reaction delay durations keyed by the string value in the scenario
+/// JSON. Absent or unrecognised = instant (no delay).
+const _reactionDelays = {
+  'short': Duration(milliseconds: 800),
+  'medium': Duration(milliseconds: 1500),
+  'long': Duration(milliseconds: 2500),
+};
+
+/// One entry in the on-screen transcript.
 class _TranscriptEntry {
   final _EntryKind kind;
   final String text;
@@ -54,9 +59,6 @@ enum _EntryKind { persona, player, feedback }
 
 class ScenarioScreen extends StatefulWidget {
   final DistrictTheme district;
-
-  /// Optional - when set (from the dev picker), fetches this specific
-  /// scenario instead of the backend's default. Omit for normal play.
   final String? scenarioIdOverride;
 
   const ScenarioScreen({super.key, required this.district, this.scenarioIdOverride});
@@ -74,10 +76,14 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
   final List<_TranscriptEntry> _transcript = [];
   final List<TurnBreakdown> _breakdown = [];
+  final List<String> _visitedLocations = [];
   List<ScenarioChoice> _currentChoices = [];
   String _currentNodeId = '';
   StatDelta _runningTotal = const StatDelta();
   bool _submitting = false;
+  bool _showTyping = false;
+
+  bool get _isNeighborhood => widget.district.id == 'neighborhood';
 
   @override
   void initState() {
@@ -91,9 +97,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           showHeader: true,
           presentation: scenario.node.presentation,
         ));
+        _trackLocation(scenario.node);
       });
-      // The very first node could theoretically be a modal beat too, so
-      // route it through the same reveal path as any other turn.
       _revealNode(scenario.node);
       return scenario;
     });
@@ -103,6 +108,15 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _trackLocation(ScenarioNode node) {
+    final location = node.presentation?.data['location'] as String?;
+    if (location != null && location.isNotEmpty) {
+      if (_visitedLocations.isEmpty || _visitedLocations.last != location) {
+        _visitedLocations.add(location);
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -116,11 +130,20 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     });
   }
 
-  /// Decides how a newly-arrived node's choices get revealed. A plain node
-  /// (or an inline-styled one, like "email") shows its choices
-  /// immediately. A node flagged `presentation.modal` holds its choices
-  /// back until the player has closed the modal - so they can't respond to
-  /// a document or payment request they haven't actually "seen" yet.
+  /// Waits for the node's reaction delay (if any) while showing a typing
+  /// indicator. Only fires for Neighbourhood-style scenarios — Digital
+  /// scenarios skip this entirely since their pacing is meant to feel
+  /// immediate/functional, not conversational.
+  Future<void> _waitForReaction(ScenarioNode node) async {
+    if (!_isNeighborhood) return;
+    final delay = _reactionDelays[node.reactionDelay];
+    if (delay == null) return;
+    setState(() => _showTyping = true);
+    _scrollToBottom();
+    await Future.delayed(delay);
+    if (mounted) setState(() => _showTyping = false);
+  }
+
   Future<void> _revealNode(ScenarioNode node) async {
     final presentation = node.presentation;
 
@@ -137,9 +160,6 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selected == null) return;
-          // The response was made from inside the modal itself - hand it
-          // straight to the normal choice flow instead of falling through
-          // to the generic "reveal choices below" path.
           await _selectChoice(selected);
           return;
         case 'call':
@@ -164,7 +184,6 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           if (!mounted || selectedScene == null) return;
           await _selectChoice(selectedScene);
           return;
-        // Future modal types get their own case here.
       }
     }
 
@@ -199,13 +218,13 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         reasons: result.reasons,
       ));
 
-      setState(() {
-        // Transparency note lands immediately, before the conversation
-        // continues - the point is to build trust turn by turn, not save
-        // the explanation for a summary screen at the very end.
-        _transcript.add(_TranscriptEntry.feedback(result.scores, result.reasons));
-      });
-      _scrollToBottom();
+      // Digital shows reasoning immediately; Neighbourhood hides it.
+      if (!_isNeighborhood) {
+        setState(() {
+          _transcript.add(_TranscriptEntry.feedback(result.scores, result.reasons));
+        });
+        _scrollToBottom();
+      }
 
       if (result.terminal) {
         Navigator.of(context).push(
@@ -224,6 +243,13 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       }
 
       final nextNode = result.node!;
+
+      // Reaction delay — typing indicator shows while we "wait" for
+      // the character to respond. Only in Neighbourhood.
+      await _waitForReaction(nextNode);
+      if (!mounted) return;
+
+      _trackLocation(nextNode);
       setState(() {
         _currentNodeId = nextNode.nodeId;
         _transcript.add(_TranscriptEntry.persona(
@@ -321,8 +347,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
               return Column(
                 children: [
+                  // Header: back button + title.
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
                     child: Row(
                       children: [
                         IconButton(
@@ -344,6 +371,19 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                       ],
                     ),
                   ),
+                  // Location progress strip — shows where the player has
+                  // been, filling in as they move through the scenario.
+                  // Only renders if there's more than one visited location.
+                  if (_isNeighborhood && _visitedLocations.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: _LocationStrip(
+                        locations: _visitedLocations,
+                        accent: district.accent,
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 8),
                   Expanded(
                     child: SingleChildScrollView(
                       controller: _scrollController,
@@ -369,7 +409,12 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                                     _buildPersonaEntry(context, scenario, entry),
                                 },
                               ),
-                            if (_submitting)
+                            if (_showTyping)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: TypingIndicator(district: district),
+                              ),
+                            if (_submitting && !_showTyping)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: SizedBox(
@@ -406,6 +451,43 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A subtle horizontal breadcrumb showing locations the player has moved
+/// through — "Kitchen → Coffee shop → ???" — selling progression as a
+/// journey through places rather than a numbered step counter.
+class _LocationStrip extends StatelessWidget {
+  final List<String> locations;
+  final Color accent;
+
+  const _LocationStrip({required this.locations, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (int i = 0; i < locations.length; i++) ...[
+            if (i > 0) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(Icons.arrow_forward_ios_rounded, size: 8, color: accent.withOpacity(0.35)),
+              ),
+            ],
+            Text(
+              locations[i],
+              style: TextStyle(
+                fontSize: 10,
+                color: i == locations.length - 1 ? accent : accent.withOpacity(0.45),
+                fontWeight: i == locations.length - 1 ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
