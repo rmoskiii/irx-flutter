@@ -50,7 +50,7 @@ class HomeScreen extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          'Good evening.',
+                          'Interactive Reality Xperience',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         // Debug-only - never ships in a release build.
@@ -76,7 +76,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'What will life throw at you today?',
+                      'IRX',
                       style: Theme.of(context).textTheme.displayLarge,
                     ),
                     const SizedBox(height: 24),

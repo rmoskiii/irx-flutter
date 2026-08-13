@@ -4,9 +4,14 @@ import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
 import '../widgets/score_feedback.dart';
 import '../widgets/score_ring.dart';
+import 'scenario_screen.dart';
 
 class OutcomeScreen extends StatelessWidget {
   final DistrictTheme district;
+
+  /// Needed so "Replay" can relaunch the exact same scenario rather than
+  /// falling back to whatever the backend's default happens to be.
+  final String scenarioId;
 
   /// Sum of every turn's score delta across the whole playthrough, not
   /// just the final choice - so a 3-turn conversation shows credit (or
@@ -16,12 +21,15 @@ class OutcomeScreen extends StatelessWidget {
   final String outcomeExplanation;
 
   /// Every turn played, in order - the "how we got here" ledger. This is
-  /// what makes the final totals feel earned rather than asserted.
+  /// what makes the final totals feel earned rather than asserted. For
+  /// districts that hide scores during play (Neighbourhood), this is
+  /// also the FIRST time the player sees any of these numbers at all.
   final List<TurnBreakdown> breakdown;
 
   const OutcomeScreen({
     super.key,
     required this.district,
+    required this.scenarioId,
     required this.totalScores,
     required this.consequence,
     required this.outcomeExplanation,
@@ -133,6 +141,29 @@ class OutcomeScreen extends StatelessWidget {
                     onPressed: () =>
                         Navigator.of(context).popUntil((route) => route.isFirst),
                     child: const Text('Continue'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: district.accent.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => ScenarioScreen(
+                          district: district,
+                          scenarioIdOverride: scenarioId,
+                        ),
+                      ),
+                    ),
+                    child: const Text('Replay this scenario'),
                   ),
                 ),
               ],

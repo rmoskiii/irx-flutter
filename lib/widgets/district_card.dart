@@ -37,6 +37,7 @@ class DistrictCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Container(
+          width: double.infinity,
           constraints: const BoxConstraints(minHeight: 152),
           decoration: BoxDecoration(
             border: Border.all(color: district.accent.withOpacity(0.3)),

@@ -212,6 +212,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           MaterialPageRoute(
             builder: (_) => OutcomeScreen(
               district: widget.district,
+              scenarioId: _scenario!.scenarioId,
               totalScores: _runningTotal,
               consequence: result.consequence ?? '',
               outcomeExplanation: result.outcomeExplanation ?? '',
