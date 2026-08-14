@@ -176,6 +176,7 @@ class TurnResult {
   final ScenarioNode? node;
   final String? consequence;
   final String? outcomeExplanation;
+  final String? landing;
 
   const TurnResult({
     required this.scores,
@@ -184,6 +185,7 @@ class TurnResult {
     this.node,
     this.consequence,
     this.outcomeExplanation,
+    this.landing,
   });
 
   factory TurnResult.fromJson(Map<String, dynamic> json) {
@@ -199,6 +201,7 @@ class TurnResult {
           : null,
       consequence: json['consequence'] as String?,
       outcomeExplanation: json['outcomeExplanation'] as String?,
+      landing: json['landing'] as String?,
     );
   }
 }

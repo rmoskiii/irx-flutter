@@ -9,6 +9,8 @@ import 'scene_avatar.dart';
 /// component as [SceneModal], just smaller and paired with a compact
 /// speech bubble rather than a full-screen backdrop.
 class SceneCard extends StatelessWidget {
+  static const revealDuration = Duration(milliseconds: 500);
+
   final DistrictTheme district;
   final String characterName;
   final String characterRole;
@@ -32,11 +34,12 @@ class SceneCard extends StatelessWidget {
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 500),
+      duration: revealDuration,
       curve: Curves.easeOutCubic,
       builder: (context, value, child) => Opacity(
         opacity: value,
-        child: Transform.translate(offset: Offset(0, (1 - value) * 12), child: child),
+        child: Transform.translate(
+            offset: Offset(0, (1 - value) * 12), child: child),
       ),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -59,15 +62,22 @@ class SceneCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(characterName, style: Theme.of(context).textTheme.titleMedium),
+                  Text(characterName,
+                      style: Theme.of(context).textTheme.titleMedium),
                   Text(
                     '$characterRole · $location',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(fontSize: 11),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     message,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(height: 1.45),
                   ),
                 ],
               ),

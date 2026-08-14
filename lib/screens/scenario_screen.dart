@@ -27,6 +27,10 @@ const _reactionDelays = {
   'long': Duration(milliseconds: 2500),
 };
 
+const _choiceStaggerDelay = Duration(milliseconds: 95);
+const _choiceCommitDelay = Duration(milliseconds: 140);
+const _defaultInlineRevealDuration = Duration(milliseconds: 280);
+
 /// One entry in the on-screen transcript.
 class _TranscriptEntry {
   final _EntryKind kind;
@@ -36,7 +40,8 @@ class _TranscriptEntry {
   final StatDelta? scores;
   final Map<String, String>? reasons;
 
-  const _TranscriptEntry.persona(this.text, {this.showHeader = false, this.presentation})
+  const _TranscriptEntry.persona(this.text,
+      {this.showHeader = false, this.presentation})
       : kind = _EntryKind.persona,
         scores = null,
         reasons = null;
@@ -57,11 +62,19 @@ class _TranscriptEntry {
 
 enum _EntryKind { persona, player, feedback }
 
+enum _NodePresentationState {
+  revealing,
+  waitingForChoice,
+  submitting,
+  transitioning
+}
+
 class ScenarioScreen extends StatefulWidget {
   final DistrictTheme district;
   final String? scenarioIdOverride;
 
-  const ScenarioScreen({super.key, required this.district, this.scenarioIdOverride});
+  const ScenarioScreen(
+      {super.key, required this.district, this.scenarioIdOverride});
 
   @override
   State<ScenarioScreen> createState() => _ScenarioScreenState();
@@ -80,23 +93,32 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   List<ScenarioChoice> _currentChoices = [];
   String _currentNodeId = '';
   StatDelta _runningTotal = const StatDelta();
-  bool _submitting = false;
+  _NodePresentationState _presentationState = _NodePresentationState.revealing;
   bool _showTyping = false;
+  String? _selectedChoiceId;
+  int _revealToken = 0;
 
   bool get _isNeighborhood => widget.district.id == 'neighborhood';
+  bool get _choiceInputLocked =>
+      _presentationState != _NodePresentationState.waitingForChoice;
 
   @override
   void initState() {
     super.initState();
-    _scenarioFuture = _api.fetchTodayScenario(scenarioId: widget.scenarioIdOverride).then((scenario) {
+    _scenarioFuture = _api
+        .fetchTodayScenario(scenarioId: widget.scenarioIdOverride)
+        .then((scenario) {
       setState(() {
         _scenario = scenario;
         _currentNodeId = scenario.node.nodeId;
-        _transcript.add(_TranscriptEntry.persona(
-          scenario.node.message,
-          showHeader: true,
-          presentation: scenario.node.presentation,
-        ));
+        _presentationState = _NodePresentationState.revealing;
+        if (!_isModalNode(scenario.node)) {
+          _transcript.add(_TranscriptEntry.persona(
+            scenario.node.message,
+            showHeader: true,
+            presentation: scenario.node.presentation,
+          ));
+        }
         _trackLocation(scenario.node);
       });
       _revealNode(scenario.node);
@@ -116,6 +138,33 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       if (_visitedLocations.isEmpty || _visitedLocations.last != location) {
         _visitedLocations.add(location);
       }
+    }
+  }
+
+  bool _isModalNode(ScenarioNode node) => node.presentation?.modal ?? false;
+
+  Duration _inlineRevealDurationFor(ScenarioNode node) {
+    if (node.presentation?.type == 'scene') return SceneCard.revealDuration;
+    return _defaultInlineRevealDuration;
+  }
+
+  Future<void> _revealChoices(List<ScenarioChoice> choices, int token) async {
+    if (!mounted || token != _revealToken) return;
+    setState(() {
+      _currentChoices = [];
+      _selectedChoiceId = null;
+      _presentationState = _NodePresentationState.waitingForChoice;
+    });
+
+    for (final choice in choices) {
+      await Future.delayed(_choiceStaggerDelay);
+      if (!mounted ||
+          token != _revealToken ||
+          _presentationState != _NodePresentationState.waitingForChoice) {
+        return;
+      }
+      setState(() => _currentChoices = [..._currentChoices, choice]);
+      _scrollToBottom();
     }
   }
 
@@ -145,12 +194,19 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   }
 
   Future<void> _revealNode(ScenarioNode node) async {
+    final token = ++_revealToken;
     final presentation = node.presentation;
+    setState(() {
+      _presentationState = _NodePresentationState.revealing;
+      _currentChoices = [];
+      _selectedChoiceId = null;
+    });
 
     if (presentation != null && presentation.modal) {
       switch (presentation.type) {
         case 'document':
-          await showDocumentModal(context, district: widget.district, data: presentation.data);
+          await showDocumentModal(context,
+              district: widget.district, data: presentation.data);
           break;
         case 'payment_request':
           final selected = await showPaymentRequestModal(
@@ -160,7 +216,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selected == null) return;
-          await _selectChoice(selected);
+          await _selectChoice(selected, fromModal: true);
           return;
         case 'call':
           final selectedCall = await showCallModal(
@@ -171,7 +227,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selectedCall == null) return;
-          await _selectChoice(selectedCall);
+          await _selectChoice(selectedCall, fromModal: true);
           return;
         case 'scene':
           final selectedScene = await showSceneModal(
@@ -182,22 +238,36 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selectedScene == null) return;
-          await _selectChoice(selectedScene);
+          await _selectChoice(selectedScene, fromModal: true);
           return;
       }
     }
 
     if (!mounted) return;
-    setState(() => _currentChoices = node.choices);
-    _scrollToBottom();
+    await Future.delayed(_inlineRevealDurationFor(node));
+    await _revealChoices(node.choices, token);
   }
 
-  Future<void> _selectChoice(ScenarioChoice choice) async {
-    if (_submitting || _scenario == null) return;
+  Future<void> _selectChoice(ScenarioChoice choice,
+      {bool fromModal = false}) async {
+    if (_scenario == null ||
+        _presentationState == _NodePresentationState.submitting ||
+        _presentationState == _NodePresentationState.transitioning ||
+        (!fromModal &&
+            _presentationState != _NodePresentationState.waitingForChoice)) {
+      return;
+    }
+    final choicesAtSelection = List<ScenarioChoice>.from(_currentChoices);
     setState(() {
-      _submitting = true;
+      _presentationState = _NodePresentationState.submitting;
+      _selectedChoiceId = choice.id;
+    });
+    await Future.delayed(_choiceCommitDelay);
+    if (!mounted) return;
+    setState(() {
       _transcript.add(_TranscriptEntry.player(choice.label));
       _currentChoices = [];
+      _selectedChoiceId = null;
     });
     _scrollToBottom();
 
@@ -221,12 +291,29 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       // Digital shows reasoning immediately; Neighbourhood hides it.
       if (!_isNeighborhood) {
         setState(() {
-          _transcript.add(_TranscriptEntry.feedback(result.scores, result.reasons));
+          _transcript
+              .add(_TranscriptEntry.feedback(result.scores, result.reasons));
         });
         _scrollToBottom();
       }
 
       if (result.terminal) {
+        // Landing beat — a final cinematic moment between the last
+        // decision and the outcome screen. The scene breathes before the
+        // numbers arrive. Only shows if the terminal choice carries one.
+        if (result.landing != null && result.landing!.isNotEmpty && mounted) {
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            barrierColor: Colors.black.withOpacity(0.85),
+            builder: (_) => _LandingScene(
+              district: widget.district,
+              text: result.landing!,
+            ),
+          );
+        }
+
+        if (!mounted) return;
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => OutcomeScreen(
@@ -243,6 +330,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       }
 
       final nextNode = result.node!;
+      setState(() => _presentationState = _NodePresentationState.transitioning);
 
       // Reaction delay — typing indicator shows while we "wait" for
       // the character to respond. Only in Neighbourhood.
@@ -252,13 +340,15 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       _trackLocation(nextNode);
       setState(() {
         _currentNodeId = nextNode.nodeId;
-        _transcript.add(_TranscriptEntry.persona(
-          nextNode.message,
-          presentation: nextNode.presentation,
-        ));
+        _presentationState = _NodePresentationState.revealing;
+        if (!_isModalNode(nextNode)) {
+          _transcript.add(_TranscriptEntry.persona(
+            nextNode.message,
+            presentation: nextNode.presentation,
+          ));
+        }
       });
       _scrollToBottom();
-      setState(() => _submitting = false);
       await _revealNode(nextNode);
       return;
     } catch (error) {
@@ -266,12 +356,21 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Something went wrong: $error')),
       );
+      setState(() {
+        _presentationState = _NodePresentationState.waitingForChoice;
+        _currentChoices = fromModal ? [] : choicesAtSelection;
+        _selectedChoiceId = null;
+      });
     } finally {
-      if (mounted && _submitting) setState(() => _submitting = false);
+      if (mounted && _presentationState == _NodePresentationState.submitting) {
+        setState(
+            () => _presentationState = _NodePresentationState.waitingForChoice);
+      }
     }
   }
 
-  Widget _buildPersonaEntry(BuildContext context, Scenario scenario, _TranscriptEntry entry) {
+  Widget _buildPersonaEntry(
+      BuildContext context, Scenario scenario, _TranscriptEntry entry) {
     final presentation = entry.presentation;
 
     if (presentation != null && presentation.type == 'email') {
@@ -340,7 +439,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                 );
               }
               if (snapshot.hasError) {
-                return _ErrorState(district: district, error: '${snapshot.error}');
+                return _ErrorState(
+                    district: district, error: '${snapshot.error}');
               }
 
               final scenario = _scenario!;
@@ -353,7 +453,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                          icon: const Icon(Icons.arrow_back,
+                              color: AppColors.textPrimary),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                         Expanded(
@@ -397,16 +498,16 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: switch (entry.kind) {
-                                  _EntryKind.player =>
-                                    PlayerBubble(district: district, label: entry.text),
+                                  _EntryKind.player => PlayerBubble(
+                                      district: district, label: entry.text),
                                   _EntryKind.feedback => ScoreFeedback(
                                       scores: entry.scores!,
                                       reasons: entry.reasons!,
                                       district: district,
                                       compact: true,
                                     ),
-                                  _EntryKind.persona =>
-                                    _buildPersonaEntry(context, scenario, entry),
+                                  _EntryKind.persona => _buildPersonaEntry(
+                                      context, scenario, entry),
                                 },
                               ),
                             if (_showTyping)
@@ -414,7 +515,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: TypingIndicator(district: district),
                               ),
-                            if (_submitting && !_showTyping)
+                            if (_presentationState ==
+                                    _NodePresentationState.submitting &&
+                                !_showTyping)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: SizedBox(
@@ -433,11 +536,26 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                               ),
                               const SizedBox(height: 12),
                               ..._currentChoices.map(
-                                (choice) => ChoiceTile(
-                                  label: choice.label,
-                                  district: district,
-                                  disabled: _submitting,
-                                  onTap: () => _selectChoice(choice),
+                                (choice) => TweenAnimationBuilder<double>(
+                                  key: ValueKey(
+                                      'choice-${_currentNodeId}-${choice.id}'),
+                                  tween: Tween(begin: 0, end: 1),
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, value, child) => Opacity(
+                                    opacity: value,
+                                    child: Transform.translate(
+                                      offset: Offset(0, (1 - value) * 8),
+                                      child: child,
+                                    ),
+                                  ),
+                                  child: ChoiceTile(
+                                    label: choice.label,
+                                    district: district,
+                                    disabled: _choiceInputLocked,
+                                    selected: _selectedChoiceId == choice.id,
+                                    onTap: () => _selectChoice(choice),
+                                  ),
                                 ),
                               ),
                             ],
@@ -475,19 +593,76 @@ class _LocationStrip extends StatelessWidget {
             if (i > 0) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Icon(Icons.arrow_forward_ios_rounded, size: 8, color: accent.withOpacity(0.35)),
+                child: Icon(Icons.arrow_forward_ios_rounded,
+                    size: 8, color: accent.withOpacity(0.35)),
               ),
             ],
             Text(
               locations[i],
               style: TextStyle(
                 fontSize: 10,
-                color: i == locations.length - 1 ? accent : accent.withOpacity(0.45),
-                fontWeight: i == locations.length - 1 ? FontWeight.w600 : FontWeight.normal,
+                color: i == locations.length - 1
+                    ? accent
+                    : accent.withOpacity(0.45),
+                fontWeight: i == locations.length - 1
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// A final emotional beat before the outcome screen — no choices, just a
+/// moment to sit with what happened. Renders as a minimal, centered text
+/// card over a darkened backdrop, with a single "Continue" to dismiss.
+/// The absence of any UI chrome (no avatar, no location strip, no
+/// choices) is deliberate — this is the quiet after the storm.
+class _LandingScene extends StatelessWidget {
+  final DistrictTheme district;
+  final String text;
+
+  const _LandingScene({required this.district, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 60),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) => Opacity(opacity: value, child: child),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 15,
+                      height: 1.6,
+                    ),
+              ),
+              const SizedBox(height: 32),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  foregroundColor: district.accent.withOpacity(0.7),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                ),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

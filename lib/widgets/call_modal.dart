@@ -33,8 +33,16 @@ class CallModal extends StatefulWidget {
 }
 
 class _CallModalState extends State<CallModal> {
+  static const _revealDuration = Duration(milliseconds: 320);
+  static const _choiceStaggerDelay = Duration(milliseconds: 95);
+  static const _choiceCommitDelay = Duration(milliseconds: 140);
+
   late final Timer _timer;
   int _seconds = 0;
+  int _visibleChoiceCount = 0;
+  String? _selectedChoiceId;
+
+  bool get _choicesLocked => _selectedChoiceId != null;
 
   @override
   void initState() {
@@ -42,6 +50,7 @@ class _CallModalState extends State<CallModal> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _seconds++);
     });
+    _revealChoices();
   }
 
   @override
@@ -54,6 +63,23 @@ class _CallModalState extends State<CallModal> {
     final m = (_seconds ~/ 60).toString().padLeft(2, '0');
     final s = (_seconds % 60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  Future<void> _revealChoices() async {
+    await Future.delayed(_revealDuration);
+    for (var i = 0; i < widget.choices.length; i++) {
+      await Future.delayed(_choiceStaggerDelay);
+      if (!mounted || _selectedChoiceId != null) return;
+      setState(() => _visibleChoiceCount = i + 1);
+    }
+  }
+
+  Future<void> _selectChoice(ScenarioChoice choice) async {
+    if (_choicesLocked) return;
+    setState(() => _selectedChoiceId = choice.id);
+    await Future.delayed(_choiceCommitDelay);
+    if (!mounted) return;
+    Navigator.of(context).pop(choice);
   }
 
   @override
@@ -76,9 +102,10 @@ class _CallModalState extends State<CallModal> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.92, end: 1),
-        duration: const Duration(milliseconds: 320),
+        duration: _revealDuration,
         curve: Curves.easeOutBack,
-        builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+        builder: (context, scale, child) =>
+            Transform.scale(scale: scale, child: child),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 380, maxHeight: maxHeight),
           child: Container(
@@ -144,7 +171,8 @@ class _CallModalState extends State<CallModal> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: district.accent.withOpacity(0.15),
-                            border: Border.all(color: district.accent.withOpacity(0.4)),
+                            border: Border.all(
+                                color: district.accent.withOpacity(0.4)),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -162,10 +190,11 @@ class _CallModalState extends State<CallModal> {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontSize: 18,
-                                color: Colors.white,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                  ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -173,10 +202,11 @@ class _CallModalState extends State<CallModal> {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                  ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -210,21 +240,39 @@ class _CallModalState extends State<CallModal> {
                           ),
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  Text(
-                    'HOW DO YOU RESPOND?',
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                  const SizedBox(height: 10),
-                  for (final choice in widget.choices)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: _CallChoiceButton(
-                        label: choice.label,
-                        district: district,
-                        onTap: () => Navigator.of(context).pop(choice),
-                      ),
+                  if (_visibleChoiceCount > 0) ...[
+                    const SizedBox(height: 22),
+                    Text(
+                      'HOW DO YOU RESPOND?',
+                      style: Theme.of(context).textTheme.labelSmall,
                     ),
+                    const SizedBox(height: 10),
+                    for (final choice
+                        in widget.choices.take(_visibleChoiceCount))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: TweenAnimationBuilder<double>(
+                          key: ValueKey('call-choice-${choice.id}'),
+                          tween: Tween(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, child) => Opacity(
+                            opacity: value,
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - value) * 8),
+                              child: child,
+                            ),
+                          ),
+                          child: _CallChoiceButton(
+                            label: choice.label,
+                            district: district,
+                            disabled: _selectedChoiceId != null,
+                            selected: _selectedChoiceId == choice.id,
+                            onTap: () => _selectChoice(choice),
+                          ),
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -243,7 +291,8 @@ class _PulsingDot extends StatefulWidget {
   State<_PulsingDot> createState() => _PulsingDotState();
 }
 
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -289,21 +338,27 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
 class _CallChoiceButton extends StatelessWidget {
   final String label;
   final DistrictTheme district;
+  final bool disabled;
+  final bool selected;
   final VoidCallback onTap;
 
   const _CallChoiceButton({
     required this.label,
     required this.district,
+    required this.disabled,
+    required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withOpacity(0.03),
+      color: selected
+          ? district.accent.withOpacity(0.16)
+          : Colors.white.withOpacity(0.03),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: onTap,
+        onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(10),
         splashColor: district.accent.withOpacity(0.15),
         child: Container(
@@ -311,11 +366,21 @@ class _CallChoiceButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            border: Border.all(
+              color: selected
+                  ? district.accent.withOpacity(0.65)
+                  : Colors.white.withOpacity(0.12),
+            ),
           ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+          child: Opacity(
+            opacity: disabled && !selected ? 0.42 : 1,
+            child: Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: Colors.white),
+            ),
           ),
         ),
       ),

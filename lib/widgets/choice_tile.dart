@@ -6,6 +6,7 @@ class ChoiceTile extends StatefulWidget {
   final String label;
   final DistrictTheme district;
   final bool disabled;
+  final bool selected;
   final VoidCallback onTap;
 
   const ChoiceTile({
@@ -14,6 +15,7 @@ class ChoiceTile extends StatefulWidget {
     required this.district,
     required this.onTap,
     this.disabled = false,
+    this.selected = false,
   });
 
   @override
@@ -26,8 +28,10 @@ class _ChoiceTileState extends State<ChoiceTile> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: widget.disabled ? null : (_) => setState(() => _pressed = true),
-      onTapCancel: widget.disabled ? null : () => setState(() => _pressed = false),
+      onTapDown:
+          widget.disabled ? null : (_) => setState(() => _pressed = true),
+      onTapCancel:
+          widget.disabled ? null : () => setState(() => _pressed = false),
       onTapUp: widget.disabled
           ? null
           : (_) {
@@ -37,21 +41,24 @@ class _ChoiceTileState extends State<ChoiceTile> {
       child: AnimatedScale(
         scale: _pressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 100),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
           width: double.infinity,
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: widget.selected
+                ? widget.district.accent.withOpacity(0.16)
+                : AppColors.surface,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: _pressed
-                  ? widget.district.accent.withOpacity(0.6)
+              color: widget.selected || _pressed
+                  ? widget.district.accent.withOpacity(0.65)
                   : AppColors.border,
             ),
           ),
           child: Opacity(
-            opacity: widget.disabled ? 0.4 : 1,
+            opacity: widget.disabled && !widget.selected ? 0.42 : 1,
             child: Text(
               widget.label,
               style: Theme.of(context).textTheme.bodyLarge,
