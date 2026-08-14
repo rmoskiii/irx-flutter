@@ -28,7 +28,8 @@ class DocumentModal extends StatelessWidget {
         tween: Tween(begin: 0.92, end: 1),
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutBack,
-        builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+        builder: (context, scale, child) =>
+            Transform.scale(scale: scale, child: child),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420, maxHeight: 560),
           child: Material(
@@ -55,7 +56,8 @@ class DocumentModal extends StatelessWidget {
                   const SizedBox(height: 18),
                   Text(
                     title,
-                    style: serif.copyWith(fontSize: 20, color: const Color(0xFF1A1A18)),
+                    style: serif.copyWith(
+                        fontSize: 20, color: const Color(0xFF1A1A18)),
                   ),
                   if (reference.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -88,8 +90,10 @@ class DocumentModal extends StatelessWidget {
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF1A1A18),
-                        backgroundColor: district.accent.withOpacity(0.16),
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        backgroundColor:
+                            district.accent.withValues(alpha: 0.16),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -118,7 +122,7 @@ Future<void> showDocumentModal(
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withOpacity(0.75),
+    barrierColor: Colors.black.withValues(alpha: 0.75),
     builder: (_) => DocumentModal(district: district, data: data),
   );
 }

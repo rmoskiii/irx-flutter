@@ -40,15 +40,18 @@ class _TypingIndicatorState extends State<TypingIndicator>
         borderRadius: BorderRadius.circular(16).copyWith(
           topLeft: const Radius.circular(4),
         ),
-        border: Border.all(color: widget.district.accent.withOpacity(0.12)),
+        border:
+            Border.all(color: widget.district.accent.withValues(alpha: 0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (i) => _Dot(
-              controller: _controller,
-              phase: i * 0.28,
-              color: widget.district.accent,
-            )),
+        children: List.generate(
+            3,
+            (i) => _Dot(
+                  controller: _controller,
+                  phase: i * 0.28,
+                  color: widget.district.accent,
+                )),
       ),
     );
   }

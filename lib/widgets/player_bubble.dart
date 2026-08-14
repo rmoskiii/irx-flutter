@@ -22,11 +22,11 @@ class PlayerBubble extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: district.accent.withOpacity(0.14),
+            color: district.accent.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(14).copyWith(
               bottomRight: const Radius.circular(4),
             ),
-            border: Border.all(color: district.accent.withOpacity(0.4)),
+            border: Border.all(color: district.accent.withValues(alpha: 0.4)),
           ),
           child: Text(
             label,

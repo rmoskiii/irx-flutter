@@ -147,7 +147,7 @@ class _SceneModalState extends State<SceneModal> {
                             style: district.labelFont().copyWith(
                                   fontSize: 11,
                                   letterSpacing: 1.4,
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                 ),
                           ),
                         ),
@@ -182,7 +182,7 @@ class _SceneModalState extends State<SceneModal> {
                                   .bodyMedium
                                   ?.copyWith(
                                     fontSize: 12,
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: Colors.white.withValues(alpha: 0.6),
                                   ),
                             ),
                           ],
@@ -197,10 +197,10 @@ class _SceneModalState extends State<SceneModal> {
                           child: Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
+                              color: Colors.white.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                  color: Colors.white.withOpacity(0.14)),
+                                  color: Colors.white.withValues(alpha: 0.14)),
                             ),
                             child: Text(
                               widget.message,
@@ -209,7 +209,7 @@ class _SceneModalState extends State<SceneModal> {
                                   .bodyLarge
                                   ?.copyWith(
                                     height: 1.55,
-                                    color: Colors.white.withOpacity(0.95),
+                                    color: Colors.white.withValues(alpha: 0.95),
                                     fontSize: 15,
                                   ),
                             ),
@@ -222,7 +222,7 @@ class _SceneModalState extends State<SceneModal> {
                           'HOW DO YOU RESPOND?',
                           style:
                               Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: Colors.white.withValues(alpha: 0.5),
                                   ),
                         ),
                         const SizedBox(height: 10),
@@ -279,7 +279,7 @@ class _AuroraBlob extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withOpacity(opacity),
+        color: color.withValues(alpha: opacity),
       ),
     );
   }
@@ -308,11 +308,11 @@ class _SceneChoiceButton extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Material(
           color: selected
-              ? accent.withOpacity(0.16)
-              : Colors.white.withOpacity(0.05),
+              ? accent.withValues(alpha: 0.16)
+              : Colors.white.withValues(alpha: 0.05),
           child: InkWell(
             onTap: disabled ? null : onTap,
-            splashColor: accent.withOpacity(0.2),
+            splashColor: accent.withValues(alpha: 0.2),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -320,8 +320,8 @@ class _SceneChoiceButton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: selected
-                      ? accent.withOpacity(0.65)
-                      : Colors.white.withOpacity(0.14),
+                      ? accent.withValues(alpha: 0.65)
+                      : Colors.white.withValues(alpha: 0.14),
                 ),
               ),
               child: Opacity(
@@ -353,7 +353,7 @@ Future<ScenarioChoice?> showSceneModal(
   return showDialog<ScenarioChoice>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withOpacity(0.8),
+    barrierColor: Colors.black.withValues(alpha: 0.8),
     builder: (_) => SceneModal(
         district: district, data: data, message: message, choices: choices),
   );

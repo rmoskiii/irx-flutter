@@ -112,10 +112,11 @@ class _CallModalState extends State<CallModal> {
             decoration: BoxDecoration(
               color: const Color(0xFF0E0E10),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: district.accent.withOpacity(0.35)),
+              border:
+                  Border.all(color: district.accent.withValues(alpha: 0.35)),
               boxShadow: [
                 BoxShadow(
-                  color: district.accent.withOpacity(0.15),
+                  color: district.accent.withValues(alpha: 0.15),
                   blurRadius: 40,
                   spreadRadius: -6,
                 ),
@@ -170,9 +171,9 @@ class _CallModalState extends State<CallModal> {
                           height: 64,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: district.accent.withOpacity(0.15),
+                            color: district.accent.withValues(alpha: 0.15),
                             border: Border.all(
-                                color: district.accent.withOpacity(0.4)),
+                                color: district.accent.withValues(alpha: 0.4)),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -228,9 +229,10 @@ class _CallModalState extends State<CallModal> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
+                      color: Colors.white.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: Text(
                       widget.message,
@@ -320,10 +322,11 @@ class _PulsingDotState extends State<_PulsingDot>
           height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: widget.color.withOpacity(0.4 + 0.6 * _controller.value),
+            color:
+                widget.color.withValues(alpha: 0.4 + 0.6 * _controller.value),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity(0.5 * _controller.value),
+                color: widget.color.withValues(alpha: 0.5 * _controller.value),
                 blurRadius: 6,
                 spreadRadius: 1,
               ),
@@ -354,13 +357,13 @@ class _CallChoiceButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected
-          ? district.accent.withOpacity(0.16)
-          : Colors.white.withOpacity(0.03),
+          ? district.accent.withValues(alpha: 0.16)
+          : Colors.white.withValues(alpha: 0.03),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(10),
-        splashColor: district.accent.withOpacity(0.15),
+        splashColor: district.accent.withValues(alpha: 0.15),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -368,8 +371,8 @@ class _CallChoiceButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected
-                  ? district.accent.withOpacity(0.65)
-                  : Colors.white.withOpacity(0.12),
+                  ? district.accent.withValues(alpha: 0.65)
+                  : Colors.white.withValues(alpha: 0.12),
             ),
           ),
           child: Opacity(
@@ -401,7 +404,7 @@ Future<ScenarioChoice?> showCallModal(
   return showDialog<ScenarioChoice>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withOpacity(0.75),
+    barrierColor: Colors.black.withValues(alpha: 0.75),
     builder: (_) => CallModal(
       district: district,
       data: data,

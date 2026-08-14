@@ -86,7 +86,8 @@ class SmsCard extends StatelessWidget {
                   bottomRight: Radius.circular(18),
                   bottomLeft: Radius.circular(4),
                 ),
-                border: Border.all(color: district.accent.withOpacity(0.18)),
+                border:
+                    Border.all(color: district.accent.withValues(alpha: 0.18)),
               ),
               child: Text(
                 body,

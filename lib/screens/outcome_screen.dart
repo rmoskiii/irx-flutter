@@ -94,9 +94,10 @@ class OutcomeScreen extends StatelessWidget {
                         children: [
                           Text(
                             '\u201c${turn.choiceLabel}\u201d',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  fontStyle: FontStyle.italic,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                    ),
                           ),
                           const SizedBox(height: 6),
                           ScoreFeedback(
@@ -119,7 +120,8 @@ class OutcomeScreen extends StatelessWidget {
                 ],
                 _StatDeltaRow(label: 'SAVVY', value: totalScores.savvy),
                 _StatDeltaRow(label: 'INTEGRITY', value: totalScores.integrity),
-                _StatDeltaRow(label: 'STREET SMARTS', value: totalScores.streetSmarts),
+                _StatDeltaRow(
+                    label: 'STREET SMARTS', value: totalScores.streetSmarts),
                 const SizedBox(height: 24),
                 Text(
                   outcomeExplanation,
@@ -138,8 +140,8 @@ class OutcomeScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    onPressed: () =>
-                        Navigator.of(context).popUntil((route) => route.isFirst),
+                    onPressed: () => Navigator.of(context)
+                        .popUntil((route) => route.isFirst),
                     child: const Text('Continue'),
                   ),
                 ),
@@ -149,7 +151,8 @@ class OutcomeScreen extends StatelessWidget {
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: BorderSide(color: district.accent.withOpacity(0.4)),
+                      side: BorderSide(
+                          color: district.accent.withValues(alpha: 0.4)),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -195,7 +198,8 @@ class _StatDeltaRow extends StatelessWidget {
           ),
           Text(
             '${positive ? '+' : ''}$value',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color),
+            style:
+                Theme.of(context).textTheme.titleMedium?.copyWith(color: color),
           ),
         ],
       ),

@@ -13,7 +13,8 @@ class DevScenarioPickerScreen extends StatefulWidget {
   const DevScenarioPickerScreen({super.key});
 
   @override
-  State<DevScenarioPickerScreen> createState() => _DevScenarioPickerScreenState();
+  State<DevScenarioPickerScreen> createState() =>
+      _DevScenarioPickerScreenState();
 }
 
 class _DevScenarioPickerScreenState extends State<DevScenarioPickerScreen> {
@@ -53,7 +54,8 @@ class _DevScenarioPickerScreenState extends State<DevScenarioPickerScreen> {
           final scenarios = snapshot.data!;
           if (scenarios.isEmpty) {
             return const Center(
-              child: Text('No scenarios on disk yet.', style: TextStyle(color: AppColors.textMuted)),
+              child: Text('No scenarios on disk yet.',
+                  style: TextStyle(color: AppColors.textMuted)),
             );
           }
 
@@ -88,13 +90,15 @@ class _DevScenarioPickerScreenState extends State<DevScenarioPickerScreen> {
                         width: 34,
                         height: 34,
                         decoration: BoxDecoration(
-                          color: district.accent.withOpacity(0.15),
+                          color: district.accent.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           '${summary.difficulty}',
-                          style: TextStyle(color: district.accent, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: district.accent,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -102,10 +106,14 @@ class _DevScenarioPickerScreenState extends State<DevScenarioPickerScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(summary.title, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15)),
+                            Text(summary.title,
+                                style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 15)),
                             Text(
                               '${summary.district} · difficulty ${summary.difficulty}',
-                              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                              style: const TextStyle(
+                                  color: AppColors.textMuted, fontSize: 12),
                             ),
                           ],
                         ),

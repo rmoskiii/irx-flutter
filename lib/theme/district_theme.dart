@@ -56,7 +56,11 @@ class Districts {
     tagline: 'Spot scams. Outsmart online threats.',
     icon: Icons.terminal_rounded,
     accent: const Color(0xFF5EE6D0),
-    backgroundGradient: const [Color(0xFF081410), Color(0xFF04211C), Color(0xFF02100D)],
+    backgroundGradient: const [
+      Color(0xFF081410),
+      Color(0xFF04211C),
+      Color(0xFF02100D)
+    ],
     labelFont: () => GoogleFonts.spaceMono(),
     available: true,
     anchorScenarioId: 'the_prince',
@@ -68,7 +72,11 @@ class Districts {
     tagline: 'Real people. Real choices. Real weight.',
     icon: Icons.night_shelter_outlined,
     accent: const Color(0xFFFFC15E),
-    backgroundGradient: const [Color(0xFF241608), Color(0xFF1C1006), Color(0xFF120A03)],
+    backgroundGradient: const [
+      Color(0xFF241608),
+      Color(0xFF1C1006),
+      Color(0xFF120A03)
+    ],
     labelFont: () => GoogleFonts.dmSerifDisplay(fontStyle: FontStyle.italic),
     available: true,
     anchorScenarioId: 'the_secret',
@@ -80,7 +88,11 @@ class Districts {
     tagline: 'Unlocks once judgment earns it',
     icon: Icons.account_balance_outlined,
     accent: const Color(0xFF8A8A90),
-    backgroundGradient: const [Color(0xFF141416), Color(0xFF101012), Color(0xFF0B0B0C)],
+    backgroundGradient: const [
+      Color(0xFF141416),
+      Color(0xFF101012),
+      Color(0xFF0B0B0C)
+    ],
     labelFont: () => GoogleFonts.spaceGrotesk(),
   );
 
@@ -90,11 +102,15 @@ class Districts {
     tagline: 'Unlocks once judgment earns it',
     icon: Icons.badge_outlined,
     accent: const Color(0xFF8A8A90),
-    backgroundGradient: const [Color(0xFF141416), Color(0xFF101012), Color(0xFF0B0B0C)],
+    backgroundGradient: const [
+      Color(0xFF141416),
+      Color(0xFF101012),
+      Color(0xFF0B0B0C)
+    ],
     labelFont: () => GoogleFonts.spaceGrotesk(),
   );
 
-  static final all = <DistrictTheme>[digital, neighborhood, money, career];
+  static final all = <DistrictTheme>[neighborhood, digital, money, career];
 
   /// Looks up a district by its string id (matches the "district" field
   /// on a scenario) - used by the dev picker to theme a scenario it

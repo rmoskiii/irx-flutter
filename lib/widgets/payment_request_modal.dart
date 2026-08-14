@@ -84,10 +84,11 @@ class _PaymentRequestModalState extends State<PaymentRequestModal> {
             decoration: BoxDecoration(
               color: const Color(0xFF0E0E10),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: district.accent.withOpacity(0.35)),
+              border:
+                  Border.all(color: district.accent.withValues(alpha: 0.35)),
               boxShadow: [
                 BoxShadow(
-                  color: district.accent.withOpacity(0.15),
+                  color: district.accent.withValues(alpha: 0.15),
                   blurRadius: 40,
                   spreadRadius: -6,
                 ),
@@ -143,10 +144,10 @@ class _PaymentRequestModalState extends State<PaymentRequestModal> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.amber.withOpacity(0.08),
+                    color: AppColors.amber.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: AppColors.amber.withOpacity(0.25)),
+                    border: Border.all(
+                        color: AppColors.amber.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,13 +229,13 @@ class _PaymentChoiceButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected
-          ? district.accent.withOpacity(0.16)
-          : Colors.white.withOpacity(0.03),
+          ? district.accent.withValues(alpha: 0.16)
+          : Colors.white.withValues(alpha: 0.03),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(10),
-        splashColor: district.accent.withOpacity(0.15),
+        splashColor: district.accent.withValues(alpha: 0.15),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -242,8 +243,8 @@ class _PaymentChoiceButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected
-                  ? district.accent.withOpacity(0.65)
-                  : Colors.white.withOpacity(0.12),
+                  ? district.accent.withValues(alpha: 0.65)
+                  : Colors.white.withValues(alpha: 0.12),
             ),
           ),
           child: Opacity(
@@ -302,7 +303,7 @@ Future<ScenarioChoice?> showPaymentRequestModal(
   return showDialog<ScenarioChoice>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withOpacity(0.75),
+    barrierColor: Colors.black.withValues(alpha: 0.75),
     builder: (_) =>
         PaymentRequestModal(district: district, data: data, choices: choices),
   );

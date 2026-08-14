@@ -40,7 +40,7 @@ class DistrictCard extends StatelessWidget {
           width: double.infinity,
           constraints: const BoxConstraints(minHeight: 152),
           decoration: BoxDecoration(
-            border: Border.all(color: district.accent.withOpacity(0.3)),
+            border: Border.all(color: district.accent.withValues(alpha: 0.3)),
           ),
           child: Stack(
             children: [
@@ -61,9 +61,9 @@ class DistrictCard extends StatelessWidget {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        AppColors.background.withOpacity(0.94),
-                        AppColors.background.withOpacity(0.55),
-                        AppColors.background.withOpacity(0.05),
+                        AppColors.background.withValues(alpha: 0.94),
+                        AppColors.background.withValues(alpha: 0.55),
+                        AppColors.background.withValues(alpha: 0.05),
                       ],
                       stops: const [0.0, 0.45, 1.0],
                     ),
@@ -85,7 +85,10 @@ class DistrictCard extends StatelessWidget {
                         children: [
                           Text(
                             district.name,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
                                   fontSize: 19,
                                   color: Colors.white,
                                 ),
@@ -93,8 +96,11 @@ class DistrictCard extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             district.tagline,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withOpacity(0.7),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 13,
                                   height: 1.35,
                                 ),
@@ -123,11 +129,13 @@ class DistrictCard extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.black.withOpacity(0.35),
-                    border: Border.all(color: Colors.white.withOpacity(0.25)),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.25)),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.white),
+                  child: const Icon(Icons.chevron_right_rounded,
+                      size: 20, color: Colors.white),
                 ),
               ),
             ],
@@ -178,7 +186,7 @@ class _ProceduralBackdrop extends StatelessWidget {
                 height: 160,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: district.accent.withOpacity(0.5),
+                  color: district.accent.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -193,7 +201,7 @@ class _ProceduralBackdrop extends StatelessWidget {
                 height: 130,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: secondaryTint.withOpacity(0.6),
+                  color: secondaryTint.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -208,7 +216,7 @@ class _ProceduralBackdrop extends StatelessWidget {
             child: Icon(
               district.icon,
               size: 150,
-              color: Colors.white.withOpacity(0.10),
+              color: Colors.white.withValues(alpha: 0.10),
             ),
           ),
           Positioned(
@@ -217,7 +225,7 @@ class _ProceduralBackdrop extends StatelessWidget {
             child: Icon(
               district.icon,
               size: 142,
-              color: district.accent.withOpacity(0.28),
+              color: district.accent.withValues(alpha: 0.28),
             ),
           ),
         ],
@@ -243,14 +251,17 @@ class _LockedCard extends StatelessWidget {
         opacity: 0.55,
         child: Row(
           children: [
-            Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.textMuted),
+            const Icon(Icons.lock_outline_rounded,
+                size: 18, color: AppColors.textMuted),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(district.name, style: Theme.of(context).textTheme.bodyLarge),
-                  Text(district.tagline, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(district.name,
+                      style: Theme.of(context).textTheme.bodyLarge),
+                  Text(district.tagline,
+                      style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ),
             ),

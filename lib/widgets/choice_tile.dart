@@ -48,12 +48,12 @@ class _ChoiceTileState extends State<ChoiceTile> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: widget.selected
-                ? widget.district.accent.withOpacity(0.16)
+                ? widget.district.accent.withValues(alpha: 0.16)
                 : AppColors.surface,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: widget.selected || _pressed
-                  ? widget.district.accent.withOpacity(0.65)
+                  ? widget.district.accent.withValues(alpha: 0.65)
                   : AppColors.border,
             ),
           ),

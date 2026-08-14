@@ -39,7 +39,7 @@ class EmailCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceRaised,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: district.accent.withOpacity(0.25)),
+          border: Border.all(color: district.accent.withValues(alpha: 0.25)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,15 +47,18 @@ class EmailCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: district.accent.withOpacity(0.08),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                color: district.accent.withValues(alpha: 0.08),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(16)),
                 border: Border(
-                  bottom: BorderSide(color: district.accent.withOpacity(0.2)),
+                  bottom:
+                      BorderSide(color: district.accent.withValues(alpha: 0.2)),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.mail_outline_rounded, size: 15, color: district.accent),
+                  Icon(Icons.mail_outline_rounded,
+                      size: 15, color: district.accent),
                   const SizedBox(width: 8),
                   Text(
                     'NEW MESSAGE',
@@ -78,10 +81,12 @@ class EmailCard extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 15,
-                        backgroundColor: district.accent.withOpacity(0.15),
+                        backgroundColor:
+                            district.accent.withValues(alpha: 0.15),
                         child: Text(
                           sender.isNotEmpty ? sender[0] : '?',
-                          style: TextStyle(color: district.accent, fontSize: 13),
+                          style:
+                              TextStyle(color: district.accent, fontSize: 13),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -89,10 +94,14 @@ class EmailCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(sender, style: Theme.of(context).textTheme.titleMedium),
+                            Text(sender,
+                                style: Theme.of(context).textTheme.titleMedium),
                             Text(
                               senderEmail,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                     fontSize: 11,
                                     color: AppColors.textMuted,
                                   ),
@@ -105,12 +114,18 @@ class EmailCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     subject,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontSize: 15),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     body,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(height: 1.5),
                   ),
                 ],
               ),

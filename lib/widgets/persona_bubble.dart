@@ -44,18 +44,20 @@ class PersonaBubble extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: district.accent.withOpacity(0.15),
-                  child: Icon(Icons.person_outline, size: 16, color: district.accent),
+                  backgroundColor: district.accent.withValues(alpha: 0.15),
+                  child: Icon(Icons.person_outline,
+                      size: 16, color: district.accent),
                 ),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name, style: Theme.of(context).textTheme.titleMedium),
-                    Text(role, style: district.labelFont().copyWith(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        )),
+                    Text(role,
+                        style: district.labelFont().copyWith(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            )),
                   ],
                 ),
               ],
@@ -69,11 +71,12 @@ class PersonaBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(16).copyWith(
                 topLeft: const Radius.circular(4),
               ),
-              border: Border.all(color: district.accent.withOpacity(0.2)),
+              border: Border.all(color: district.accent.withValues(alpha: 0.2)),
             ),
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+              style:
+                  Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
             ),
           ),
         ],

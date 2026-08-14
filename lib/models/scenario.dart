@@ -1,6 +1,7 @@
 /// Models mirror the shape returned by the irl-backend API. Keeping them
 /// as plain, explicit fromJson factories (no codegen) keeps the project
 /// dependency-light and easy to read for a small MVP.
+library;
 
 class Persona {
   final String name;
@@ -86,7 +87,8 @@ class ScenarioNode {
       message: json['message'] as String,
       reactionDelay: json['reactionDelay'] as String?,
       presentation: json['presentation'] != null
-          ? ScenarioPresentation.fromJson(json['presentation'] as Map<String, dynamic>)
+          ? ScenarioPresentation.fromJson(
+              json['presentation'] as Map<String, dynamic>)
           : null,
       choices: (json['choices'] as List)
           .map((c) => ScenarioChoice.fromJson(c as Map<String, dynamic>))
@@ -219,6 +221,7 @@ class TurnBreakdown {
     required this.reasons,
   });
 }
+
 /// Summary of a scenario, as returned by GET /api/scenarios/list. Powers
 /// the dev-only scenario picker - deliberately minimal, just enough to
 /// show a list and let you pick one.

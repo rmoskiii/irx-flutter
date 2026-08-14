@@ -46,7 +46,7 @@ class SceneCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceRaised,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: moodStyle.primary.withOpacity(0.22)),
+          border: Border.all(color: moodStyle.primary.withValues(alpha: 0.22)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

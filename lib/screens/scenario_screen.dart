@@ -305,7 +305,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           await showDialog<void>(
             context: context,
             barrierDismissible: false,
-            barrierColor: Colors.black.withOpacity(0.85),
+            barrierColor: Colors.black.withValues(alpha: 0.85),
             builder: (_) => _LandingScene(
               district: widget.district,
               text: result.landing!,
@@ -538,7 +538,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                               ..._currentChoices.map(
                                 (choice) => TweenAnimationBuilder<double>(
                                   key: ValueKey(
-                                      'choice-${_currentNodeId}-${choice.id}'),
+                                      'choice-$_currentNodeId-${choice.id}'),
                                   tween: Tween(begin: 0, end: 1),
                                   duration: const Duration(milliseconds: 180),
                                   curve: Curves.easeOutCubic,
@@ -594,7 +594,7 @@ class _LocationStrip extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(Icons.arrow_forward_ios_rounded,
-                    size: 8, color: accent.withOpacity(0.35)),
+                    size: 8, color: accent.withValues(alpha: 0.35)),
               ),
             ],
             Text(
@@ -603,7 +603,7 @@ class _LocationStrip extends StatelessWidget {
                 fontSize: 10,
                 color: i == locations.length - 1
                     ? accent
-                    : accent.withOpacity(0.45),
+                    : accent.withValues(alpha: 0.45),
                 fontWeight: i == locations.length - 1
                     ? FontWeight.w600
                     : FontWeight.normal,
@@ -636,7 +636,8 @@ class _LandingScene extends StatelessWidget {
         tween: Tween(begin: 0, end: 1),
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOutCubic,
-        builder: (context, value, child) => Opacity(opacity: value, child: child),
+        builder: (context, value, child) =>
+            Opacity(opacity: value, child: child),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
           child: Column(
@@ -646,7 +647,7 @@ class _LandingScene extends StatelessWidget {
                 text,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 15,
                       height: 1.6,
                     ),
@@ -655,8 +656,9 @@ class _LandingScene extends StatelessWidget {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
-                  foregroundColor: district.accent.withOpacity(0.7),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  foregroundColor: district.accent.withValues(alpha: 0.7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 ),
                 child: const Text('Continue'),
               ),
