@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../utils/reading_time.dart';
 import 'choice_tile.dart';
 
 /// Renders a "messages" node as a phone thread — bubbles for dialogue,
@@ -259,6 +262,7 @@ class _MessagesModalState extends State<_MessagesModal> {
   static const _narrationGap = Duration(milliseconds: 420);
 
   int _revealed = 0;
+  int? _typingIndex;
   bool _choicesVisible = false;
   String? _selectedId;
 
@@ -270,11 +274,26 @@ class _MessagesModalState extends State<_MessagesModal> {
 
   Future<void> _run() async {
     for (var i = 0; i < widget.thread.length; i++) {
-      await Future.delayed(widget.thread[i].isBubble ? _bubbleGap : _narrationGap);
+      final segment = widget.thread[i];
+      if (segment.isBubble) {
+        setState(() => _typingIndex = i);
+      }
+      await Future.delayed(segment.isBubble ? _bubbleGap : _narrationGap);
       if (!mounted) return;
-      setState(() => _revealed = i + 1);
+      setState(() {
+        _revealed = i + 1;
+        _typingIndex = null;
+      });
+      final segmentText = segment.isBubble ? segment.text : segment.narration;
+      await Future.delayed(readingHoldForText(
+        segmentText ?? '',
+        minMs: segment.isBubble ? 650 : 900,
+        maxMs: segment.isBubble ? 2600 : 3200,
+        msPerWord: 90,
+      ));
+      if (!mounted) return;
     }
-    await Future.delayed(const Duration(milliseconds: 320));
+    await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     setState(() => _choicesVisible = true);
   }
@@ -291,6 +310,10 @@ class _MessagesModalState extends State<_MessagesModal> {
   Widget build(BuildContext context) {
     final character = widget.data['character'] as Map<String, dynamic>? ?? {};
     final location = widget.data['location'] as String? ?? '';
+    final typingSegment =
+        _typingIndex == null ? null : widget.thread[_typingIndex!];
+    final typingSender =
+        typingSegment == null ? null : _senderForTypingBubble(_typingIndex!);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -320,6 +343,14 @@ class _MessagesModalState extends State<_MessagesModal> {
                 thread: widget.thread,
                 revealedSegments: _revealed,
               ),
+              if (typingSegment != null && typingSegment.isBubble)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 8),
+                  child: _ThreadTypingBubble(
+                    district: widget.district,
+                    sender: typingSender,
+                  ),
+                ),
               if (_choicesVisible) ...[
                 const SizedBox(height: 18),
                 Text(
@@ -340,6 +371,136 @@ class _MessagesModalState extends State<_MessagesModal> {
           ),
         ),
       ),
+    );
+  }
+
+  String? _senderForTypingBubble(int index) {
+    final sender = widget.thread[index].from;
+    if (sender == null) return null;
+    if (index == 0) return sender;
+    final previous = widget.thread[index - 1];
+    if (previous.isBubble && previous.from == sender) return null;
+    return sender;
+  }
+}
+
+class _ThreadTypingBubble extends StatefulWidget {
+  final DistrictTheme district;
+  final String? sender;
+
+  const _ThreadTypingBubble({required this.district, required this.sender});
+
+  @override
+  State<_ThreadTypingBubble> createState() => _ThreadTypingBubbleState();
+}
+
+class _ThreadTypingBubbleState extends State<_ThreadTypingBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1050),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 300),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.sender != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 4),
+                child: Text(
+                  widget.sender!.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 9,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w600,
+                    color: widget.district.accent.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.055),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  3,
+                  (i) => _ThreadTypingDot(
+                    controller: _controller,
+                    phase: i * 0.18,
+                    color: widget.district.accent,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThreadTypingDot extends StatelessWidget {
+  final AnimationController controller;
+  final double phase;
+  final Color color;
+
+  const _ThreadTypingDot({
+    required this.controller,
+    required this.phase,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final t = (controller.value + phase) % 1.0;
+        final lift = -sin(t * pi) * 3;
+        final opacity = (0.28 + sin(t * pi) * 0.5).clamp(0.25, 0.78);
+        return Transform.translate(
+          offset: Offset(0, lift),
+          child: Opacity(
+            opacity: opacity,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -76,6 +76,25 @@ class ThreadSegment {
     );
   }
 }
+
+class ScenarioInterstitial {
+  final String label;
+  final Duration duration;
+
+  const ScenarioInterstitial({
+    required this.label,
+    required this.duration,
+  });
+
+  factory ScenarioInterstitial.fromJson(Map<String, dynamic> json) {
+    return ScenarioInterstitial(
+      label: json['label'] as String? ?? '',
+      duration:
+          Duration(milliseconds: (json['durationMs'] as num?)?.toInt() ?? 2000),
+    );
+  }
+}
+
 /// A single point in the conversation: the persona's message plus the
 /// choices available in response to it. Both /today and mid-conversation
 /// /respond calls return one of these, so the client always renders the
@@ -109,10 +128,12 @@ class ScenarioNode {
           .toList(),
       reactionDelay: json['reactionDelay'] as String?,
       interstitial: json['interstitial'] != null
-          ? ScenarioInterstitial.fromJson(json['interstitial'] as Map<String, dynamic>)
+          ? ScenarioInterstitial.fromJson(
+              json['interstitial'] as Map<String, dynamic>)
           : null,
       presentation: json['presentation'] != null
-          ? ScenarioPresentation.fromJson(json['presentation'] as Map<String, dynamic>)
+          ? ScenarioPresentation.fromJson(
+              json['presentation'] as Map<String, dynamic>)
           : null,
       choices: (json['choices'] as List)
           .map((c) => ScenarioChoice.fromJson(c as Map<String, dynamic>))
@@ -129,6 +150,7 @@ class Scenario {
   final String district;
   final int difficulty;
   final Persona persona;
+  final Map<String, dynamic> state;
   final ScenarioNode node;
 
   const Scenario({
@@ -137,6 +159,7 @@ class Scenario {
     required this.district,
     required this.difficulty,
     required this.persona,
+    required this.state,
     required this.node,
   });
 
@@ -147,6 +170,7 @@ class Scenario {
       district: json['district'] as String,
       difficulty: json['difficulty'] as int,
       persona: Persona.fromJson(json['persona'] as Map<String, dynamic>),
+      state: Map<String, dynamic>.from((json['state'] as Map?) ?? const {}),
       node: ScenarioNode.fromJson(json['node'] as Map<String, dynamic>),
     );
   }
@@ -199,6 +223,8 @@ class TurnResult {
   final StatDelta scores;
   final Map<String, String> reasons;
   final bool terminal;
+  final String? beat;
+  final Map<String, dynamic>? state;
   final ScenarioNode? node;
   final String? consequence;
   final String? outcomeExplanation;
@@ -208,6 +234,8 @@ class TurnResult {
     required this.scores,
     required this.reasons,
     required this.terminal,
+    this.beat,
+    this.state,
     this.node,
     this.consequence,
     this.outcomeExplanation,
@@ -222,6 +250,10 @@ class TurnResult {
           ) ??
           const {},
       terminal: json['terminal'] as bool,
+      beat: json['beat'] as String?,
+      state: json['state'] != null
+          ? Map<String, dynamic>.from(json['state'] as Map)
+          : null,
       node: json['node'] != null
           ? ScenarioNode.fromJson(json['node'] as Map<String, dynamic>)
           : null,

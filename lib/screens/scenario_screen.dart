@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../utils/reading_time.dart';
 import '../widgets/call_modal.dart';
 import '../widgets/choice_tile.dart';
 import '../widgets/document_modal.dart';
@@ -21,9 +22,9 @@ import '../widgets/sms_card.dart';
 import '../widgets/typing_indicator.dart';
 import 'outcome_screen.dart';
 
-/// Reaction delay durations keyed by the string value in the scenario
-/// JSON. Absent or unrecognised = instant (no delay).
-const _reactionDelays = {
+/// Reaction delay floors keyed by the string value in the scenario JSON.
+/// The actual pause also scales with the node's text length.
+const _reactionDelayFloors = {
   'short': Duration(milliseconds: 800),
   'medium': Duration(milliseconds: 1500),
   'long': Duration(milliseconds: 2500),
@@ -33,10 +34,7 @@ const _choiceStaggerDelay = Duration(milliseconds: 95);
 const _choiceCommitDelay = Duration(milliseconds: 140);
 const _defaultInlineRevealDuration = Duration(milliseconds: 280);
 
-/// How long a `beat` lingers on screen before the next persona message
-/// arrives. Short enough not to stall; long enough to read as a distinct
-/// narrative beat and not as a caption on what follows.
-const _beatHoldDuration = Duration(milliseconds: 900);
+const _modalDismissDwell = Duration(milliseconds: 600);
 
 /// One entry in the on-screen transcript. A persona entry carries either
 /// [text] (chat/scene/email/sms) OR [thread] (messages) — never both.
@@ -179,6 +177,23 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     return _defaultInlineRevealDuration;
   }
 
+  Duration _choiceRevealDelayFor(ScenarioNode node) {
+    final revealDuration = _inlineRevealDurationFor(node);
+    if (!_isNeighborhood) return revealDuration;
+    if (node.thread != null) {
+      return readingHoldForThread(
+        node.thread!,
+        minMs: revealDuration.inMilliseconds,
+        maxMs: 7000,
+      );
+    }
+    return readingHoldForText(
+      node.message ?? '',
+      minMs: revealDuration.inMilliseconds,
+      maxMs: 7000,
+    );
+  }
+
   Future<void> _revealChoices(List<ScenarioChoice> choices, int token) async {
     if (!mounted || token != _revealToken) return;
     setState(() {
@@ -219,12 +234,50 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     // An interstitial is already a pause. Running both back-to-back gives
     // 4.5s of blank screen on exactly the beats that matter most.
     if (node.interstitial != null) return;
-    final delay = _reactionDelays[node.reactionDelay];
-    if (delay == null) return;
+    final floor = _reactionDelayFloors[node.reactionDelay];
+    if (floor == null) return;
+    final textHold = node.thread != null
+        ? readingHoldForThread(
+            node.thread!,
+            minMs: floor.inMilliseconds,
+            maxMs: 3500,
+            msPerWord: 45,
+          )
+        : readingHoldForText(
+            node.message ?? '',
+            minMs: floor.inMilliseconds,
+            maxMs: 3500,
+            msPerWord: 45,
+          );
     setState(() => _showTyping = true);
     _scrollToBottom();
-    await Future.delayed(delay);
+    await Future.delayed(textHold);
     if (mounted) setState(() => _showTyping = false);
+  }
+
+  void _addModalNodeToTranscript(ScenarioNode node) {
+    final hasMessage = (node.message ?? '').trim().isNotEmpty;
+    final hasThread = node.thread?.isNotEmpty ?? false;
+    if (!hasMessage && !hasThread) return;
+
+    setState(() {
+      _transcript.add(_TranscriptEntry.persona(
+        node.message ?? '',
+        presentation: node.presentation,
+        thread: node.thread,
+      ));
+    });
+    _scrollToBottom();
+  }
+
+  Future<void> _commitModalChoice(
+    ScenarioNode node,
+    ScenarioChoice choice,
+  ) async {
+    _addModalNodeToTranscript(node);
+    await Future.delayed(_modalDismissDwell);
+    if (!mounted) return;
+    await _selectChoice(choice, fromModal: true);
   }
 
   Future<void> _revealNode(ScenarioNode node, {int? token}) async {
@@ -251,7 +304,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selected == null) return;
-          await _selectChoice(selected, fromModal: true);
+          await _commitModalChoice(node, selected);
           return;
         case 'call':
           final selectedCall = await showCallModal(
@@ -262,7 +315,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selectedCall == null) return;
-          await _selectChoice(selectedCall, fromModal: true);
+          await _commitModalChoice(node, selectedCall);
           return;
         case 'scene':
           final selectedScene = await showSceneModal(
@@ -273,7 +326,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selectedScene == null) return;
-          await _selectChoice(selectedScene, fromModal: true);
+          await _commitModalChoice(node, selectedScene);
           return;
         case 'messages':
           final selectedThread = await showMessagesModal(
@@ -284,13 +337,13 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             choices: node.choices,
           );
           if (!mounted || selectedThread == null) return;
-          await _selectChoice(selectedThread, fromModal: true);
+          await _commitModalChoice(node, selectedThread);
           return;
       }
     }
 
     if (!mounted) return;
-    await Future.delayed(_inlineRevealDurationFor(node));
+    await Future.delayed(_choiceRevealDelayFor(node));
     await _revealChoices(node.choices, revealToken);
   }
 
@@ -356,7 +409,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       if (result.beat != null && result.beat!.isNotEmpty) {
         setState(() => _transcript.add(_TranscriptEntry.beat(result.beat!)));
         _scrollToBottom();
-        await Future.delayed(_beatHoldDuration);
+        await Future.delayed(readingHoldForText(result.beat!));
         if (!mounted) return;
       }
 

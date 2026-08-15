@@ -49,15 +49,19 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'Interactive Reality Xperience',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                        Expanded(
+                          child: Text(
+                            'Interactive Reality Xperience',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                         ),
                         // Debug-only - never ships in a release build.
                         // Purely a way to jump into any scenario on disk
                         // while building/testing them.
                         if (kDebugMode) ...[
-                          const Spacer(),
+                          const SizedBox(width: 12),
                           TextButton.icon(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
@@ -68,7 +72,8 @@ class HomeScreen extends StatelessWidget {
                             label: const Text('Dev'),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.textMuted,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                             ),
                           ),
                         ],
@@ -124,7 +129,8 @@ class HomeScreen extends StatelessWidget {
                                     MaterialPageRoute(
                                       builder: (_) => ScenarioScreen(
                                         district: district,
-                                        scenarioIdOverride: district.anchorScenarioId,
+                                        scenarioIdOverride:
+                                            district.anchorScenarioId,
                                       ),
                                     ),
                                   )

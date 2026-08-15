@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../utils/reading_time.dart';
 
 /// Renders a "payment_request" presentation as a slick fake-fintech modal -
 /// crisp, dark, and confident-looking on purpose. This is the moment the
@@ -45,7 +46,14 @@ class _PaymentRequestModalState extends State<PaymentRequestModal> {
   }
 
   Future<void> _revealChoices() async {
-    await Future.delayed(_revealDuration);
+    final note = widget.data['note'] as String? ?? '';
+    final reference = widget.data['reference'] as String? ?? '';
+    await Future.delayed(readingHoldForText(
+      '$reference $note',
+      minMs: 1400,
+      maxMs: 4200,
+      msPerWord: 200,
+    ));
     for (var i = 0; i < widget.choices.length; i++) {
       await Future.delayed(_choiceStaggerDelay);
       if (!mounted || _selectedChoiceId != null) return;

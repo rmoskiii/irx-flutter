@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../utils/reading_time.dart';
 
 /// Renders a "call" presentation as a modal styled like an active phone
 /// call - large caller identity up top, a live-ticking call duration to
@@ -66,7 +67,12 @@ class _CallModalState extends State<CallModal> {
   }
 
   Future<void> _revealChoices() async {
-    await Future.delayed(_revealDuration);
+    await Future.delayed(readingHoldForText(
+      widget.message,
+      minMs: 1400,
+      maxMs: 5200,
+      msPerWord: 220,
+    ));
     for (var i = 0; i < widget.choices.length; i++) {
       await Future.delayed(_choiceStaggerDelay);
       if (!mounted || _selectedChoiceId != null) return;

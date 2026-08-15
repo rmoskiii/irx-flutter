@@ -56,95 +56,139 @@ class _SceneAvatarState extends State<SceneAvatar>
 
   @override
   Widget build(BuildContext context) {
-    final mood = widget.mood;
     final glowSize = widget.size * 2.1;
 
     return SizedBox(
       width: glowSize,
       height: glowSize,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Ambient glow - a soft radial wash behind everything else,
-          // breathing gently in sync with the silhouette.
-          AnimatedBuilder(
-            animation: _breathController,
-            builder: (context, child) {
-              final t = _breathController.value;
-              final scale =
-                  mood.baseScale * (1.0 + t * 0.08 * (0.4 + mood.energy));
-              return Transform.scale(scale: scale, child: child);
-            },
-            child: Container(
-              width: glowSize,
-              height: glowSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    mood.primary.withValues(alpha: 0.35),
-                    mood.secondary.withValues(alpha: 0.12),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // Drifting light particles - small, slow, individually phased.
-          ...List.generate(
-              4,
-              (i) => _FloatingParticle(
-                    controller: _particleController,
-                    index: i,
-                    radius: widget.size * 0.85,
-                    color: i.isEven ? mood.primary : mood.secondary,
-                  )),
-
-          // The silhouette itself - a soft bust shape filled with the
-          // mood gradient, breathing at a slightly smaller amplitude than
-          // the glow so the two layers feel connected, not identical.
-          AnimatedBuilder(
-            animation: _breathController,
-            builder: (context, child) {
-              final t = _breathController.value;
-              final scale =
-                  mood.baseScale * (1.0 + t * 0.035 * (0.4 + mood.energy));
-              return Transform.scale(scale: scale, child: child);
-            },
-            child: ClipPath(
-              clipper: _BustSilhouetteClipper(),
-              child: Container(
-                width: widget.size,
-                height: widget.size,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [mood.primary, mood.secondary],
-                  ),
-                  border: Border.all(
-                      color: widget.accent.withValues(alpha: 0.5), width: 1.4),
-                ),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Text(
-                  widget.initial,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: widget.size * 0.28,
-                    fontWeight: FontWeight.w600,
+      child: TweenAnimationBuilder<MoodStyle>(
+        tween: _MoodStyleTween(
+          begin: _entryMood(widget.mood, widget.accent),
+          end: widget.mood,
+        ),
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOutCubic,
+        builder: (context, mood, _) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Ambient glow - a soft radial wash behind everything else,
+              // breathing gently in sync with the silhouette.
+              AnimatedBuilder(
+                animation: _breathController,
+                builder: (context, child) {
+                  final t = _breathController.value;
+                  final scale =
+                      mood.baseScale * (1.0 + t * 0.08 * (0.4 + mood.energy));
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: Container(
+                  width: glowSize,
+                  height: glowSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        mood.primary.withValues(alpha: 0.35),
+                        mood.secondary.withValues(alpha: 0.12),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+
+              // Drifting light particles - small, slow, individually phased.
+              ...List.generate(
+                  4,
+                  (i) => _FloatingParticle(
+                        controller: _particleController,
+                        index: i,
+                        radius: widget.size * 0.85,
+                        color: i.isEven ? mood.primary : mood.secondary,
+                      )),
+
+              // The silhouette itself - a soft bust shape filled with the
+              // mood gradient, breathing at a slightly smaller amplitude than
+              // the glow so the two layers feel connected, not identical.
+              AnimatedBuilder(
+                animation: _breathController,
+                builder: (context, child) {
+                  final t = _breathController.value;
+                  final scale =
+                      mood.baseScale * (1.0 + t * 0.035 * (0.4 + mood.energy));
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: ClipPath(
+                  clipper: _BustSilhouetteClipper(),
+                  child: Container(
+                    width: widget.size,
+                    height: widget.size,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [mood.primary, mood.secondary],
+                      ),
+                      border: Border.all(
+                          color: widget.accent.withValues(alpha: 0.5),
+                          width: 1.4),
+                    ),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      widget.initial,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        fontSize: widget.size * 0.28,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
+
+MoodStyle _entryMood(MoodStyle target, Color accent) {
+  return MoodStyle(
+    primary: Color.lerp(accent, target.primary, 0.28)!,
+    secondary: Color.lerp(Colors.black, target.secondary, 0.32)!,
+    energy: target.energy * 0.35,
+    baseScale: target.baseScale * 0.96,
+    atmosphereOpacity: target.atmosphereOpacity,
+    atmosphereBlur: target.atmosphereBlur,
+    atmosphereBrightness: target.atmosphereBrightness,
+  );
+}
+
+class _MoodStyleTween extends Tween<MoodStyle> {
+  _MoodStyleTween({required super.begin, required super.end});
+
+  @override
+  MoodStyle lerp(double t) {
+    return MoodStyle(
+      primary: Color.lerp(begin!.primary, end!.primary, t)!,
+      secondary: Color.lerp(begin!.secondary, end!.secondary, t)!,
+      energy: _lerpDouble(begin!.energy, end!.energy, t),
+      baseScale: _lerpDouble(begin!.baseScale, end!.baseScale, t),
+      atmosphereOpacity:
+          _lerpDouble(begin!.atmosphereOpacity, end!.atmosphereOpacity, t),
+      atmosphereBlur:
+          _lerpDouble(begin!.atmosphereBlur, end!.atmosphereBlur, t),
+      atmosphereBrightness: _lerpDouble(
+          begin!.atmosphereBrightness, end!.atmosphereBrightness, t),
+    );
+  }
+}
+
+double _lerpDouble(double a, double b, double t) => a + (b - a) * t;
 
 /// Drifts in a slow, individually-phased orbit around the avatar with a
 /// gentle opacity pulse - the "cinematic dust" that makes the portrait
