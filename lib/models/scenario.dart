@@ -56,6 +56,26 @@ class ScenarioPresentation {
   }
 }
 
+/// One entry in a "messages" thread. Either a bubble ([from] + [text]) or
+/// a line of prose narration ([narration]). Never both — presence of
+/// [from] is what makes it a bubble.
+class ThreadSegment {
+  final String? from;
+  final String? text;
+  final String? narration;
+
+  const ThreadSegment({this.from, this.text, this.narration});
+
+  bool get isBubble => from != null;
+
+  factory ThreadSegment.fromJson(Map<String, dynamic> json) {
+    return ThreadSegment(
+      from: json['from'] as String?,
+      text: json['text'] as String?,
+      narration: json['narration'] as String?,
+    );
+  }
+}
 /// A single point in the conversation: the persona's message plus the
 /// choices available in response to it. Both /today and mid-conversation
 /// /respond calls return one of these, so the client always renders the
@@ -63,32 +83,36 @@ class ScenarioPresentation {
 /// is null for an ordinary chat beat.
 class ScenarioNode {
   final String nodeId;
-  final String message;
+  final String? message;
+  final List<ThreadSegment>? thread;
   final ScenarioPresentation? presentation;
   final List<ScenarioChoice> choices;
-
-  /// How long the character "takes to respond" before this node's content
-  /// appears — "short" (800ms), "medium" (1500ms), "long" (2500ms), or
-  /// null (instant). Only used in Neighbourhood-style scenarios where the
-  /// pacing should feel conversational, not scripted.
   final String? reactionDelay;
+  final ScenarioInterstitial? interstitial;
 
   const ScenarioNode({
     required this.nodeId,
-    required this.message,
     required this.choices,
+    this.message,
+    this.thread,
     this.presentation,
     this.reactionDelay,
+    this.interstitial,
   });
 
   factory ScenarioNode.fromJson(Map<String, dynamic> json) {
     return ScenarioNode(
       nodeId: json['nodeId'] as String,
-      message: json['message'] as String,
+      message: json['message'] as String?,
+      thread: (json['thread'] as List?)
+          ?.map((s) => ThreadSegment.fromJson(s as Map<String, dynamic>))
+          .toList(),
       reactionDelay: json['reactionDelay'] as String?,
+      interstitial: json['interstitial'] != null
+          ? ScenarioInterstitial.fromJson(json['interstitial'] as Map<String, dynamic>)
+          : null,
       presentation: json['presentation'] != null
-          ? ScenarioPresentation.fromJson(
-              json['presentation'] as Map<String, dynamic>)
+          ? ScenarioPresentation.fromJson(json['presentation'] as Map<String, dynamic>)
           : null,
       choices: (json['choices'] as List)
           .map((c) => ScenarioChoice.fromJson(c as Map<String, dynamic>))

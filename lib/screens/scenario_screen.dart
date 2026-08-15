@@ -9,6 +9,8 @@ import '../widgets/call_modal.dart';
 import '../widgets/choice_tile.dart';
 import '../widgets/document_modal.dart';
 import '../widgets/email_card.dart';
+import '../widgets/interstitial_overlay.dart';
+import '../widgets/messages_card.dart';
 import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
 import '../widgets/player_bubble.dart';
@@ -31,23 +33,34 @@ const _choiceStaggerDelay = Duration(milliseconds: 95);
 const _choiceCommitDelay = Duration(milliseconds: 140);
 const _defaultInlineRevealDuration = Duration(milliseconds: 280);
 
-/// One entry in the on-screen transcript.
+/// How long a `beat` lingers on screen before the next persona message
+/// arrives. Short enough not to stall; long enough to read as a distinct
+/// narrative beat and not as a caption on what follows.
+const _beatHoldDuration = Duration(milliseconds: 900);
+
+/// One entry in the on-screen transcript. A persona entry carries either
+/// [text] (chat/scene/email/sms) OR [thread] (messages) — never both.
 class _TranscriptEntry {
   final _EntryKind kind;
   final String text;
+  final List<ThreadSegment>? thread;
   final bool showHeader;
   final ScenarioPresentation? presentation;
   final StatDelta? scores;
   final Map<String, String>? reasons;
 
-  const _TranscriptEntry.persona(this.text,
-      {this.showHeader = false, this.presentation})
-      : kind = _EntryKind.persona,
+  const _TranscriptEntry.persona(
+    this.text, {
+    this.showHeader = false,
+    this.presentation,
+    this.thread,
+  })  : kind = _EntryKind.persona,
         scores = null,
         reasons = null;
 
   const _TranscriptEntry.player(this.text)
       : kind = _EntryKind.player,
+        thread = null,
         showHeader = false,
         presentation = null,
         scores = null,
@@ -56,11 +69,20 @@ class _TranscriptEntry {
   const _TranscriptEntry.feedback(this.scores, this.reasons)
       : kind = _EntryKind.feedback,
         text = '',
+        thread = null,
         showHeader = false,
         presentation = null;
+
+  const _TranscriptEntry.beat(this.text)
+      : kind = _EntryKind.beat,
+        thread = null,
+        showHeader = false,
+        presentation = null,
+        scores = null,
+        reasons = null;
 }
 
-enum _EntryKind { persona, player, feedback }
+enum _EntryKind { persona, player, feedback, beat }
 
 enum _NodePresentationState {
   revealing,
@@ -93,6 +115,13 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   List<ScenarioChoice> _currentChoices = [];
   String _currentNodeId = '';
   StatDelta _runningTotal = const StatDelta();
+
+  /// Opaque scenario state — initialised by the backend from stateSchema,
+  /// updated on every /respond, sent back verbatim on the next turn. The
+  /// client NEVER reads a key out of this map, so variant/routing logic
+  /// on the backend can't desync from the renderer.
+  Map<String, dynamic> _scenarioState = const {};
+
   _NodePresentationState _presentationState = _NodePresentationState.revealing;
   bool _showTyping = false;
   String? _selectedChoiceId;
@@ -111,12 +140,14 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       setState(() {
         _scenario = scenario;
         _currentNodeId = scenario.node.nodeId;
+        _scenarioState = scenario.state;
         _presentationState = _NodePresentationState.revealing;
         if (!_isModalNode(scenario.node)) {
           _transcript.add(_TranscriptEntry.persona(
-            scenario.node.message,
+            scenario.node.message ?? '',
             showHeader: true,
             presentation: scenario.node.presentation,
+            thread: scenario.node.thread,
           ));
         }
         _trackLocation(scenario.node);
@@ -185,6 +216,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   /// immediate/functional, not conversational.
   Future<void> _waitForReaction(ScenarioNode node) async {
     if (!_isNeighborhood) return;
+    // An interstitial is already a pause. Running both back-to-back gives
+    // 4.5s of blank screen on exactly the beats that matter most.
+    if (node.interstitial != null) return;
     final delay = _reactionDelays[node.reactionDelay];
     if (delay == null) return;
     setState(() => _showTyping = true);
@@ -193,8 +227,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     if (mounted) setState(() => _showTyping = false);
   }
 
-  Future<void> _revealNode(ScenarioNode node) async {
-    final token = ++_revealToken;
+  Future<void> _revealNode(ScenarioNode node, {int? token}) async {
+    final revealToken = token ?? ++_revealToken;
+    if (revealToken != _revealToken) return;
     final presentation = node.presentation;
     setState(() {
       _presentationState = _NodePresentationState.revealing;
@@ -223,7 +258,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             context,
             district: widget.district,
             data: presentation.data,
-            message: node.message,
+            message: node.message ?? '',
             choices: node.choices,
           );
           if (!mounted || selectedCall == null) return;
@@ -234,18 +269,29 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             context,
             district: widget.district,
             data: presentation.data,
-            message: node.message,
+            message: node.message ?? '',
             choices: node.choices,
           );
           if (!mounted || selectedScene == null) return;
           await _selectChoice(selectedScene, fromModal: true);
+          return;
+        case 'messages':
+          final selectedThread = await showMessagesModal(
+            context,
+            district: widget.district,
+            data: presentation.data,
+            thread: node.thread ?? const [],
+            choices: node.choices,
+          );
+          if (!mounted || selectedThread == null) return;
+          await _selectChoice(selectedThread, fromModal: true);
           return;
       }
     }
 
     if (!mounted) return;
     await Future.delayed(_inlineRevealDurationFor(node));
-    await _revealChoices(node.choices, token);
+    await _revealChoices(node.choices, revealToken);
   }
 
   Future<void> _selectChoice(ScenarioChoice choice,
@@ -277,9 +323,15 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         nodeId: _currentNodeId,
         choiceId: choice.id,
         runningTotal: _runningTotal,
+        state: _scenarioState,
       );
 
       if (!mounted) return;
+
+      // Opaque courier — whatever the backend hands back is what we send
+      // next turn. The client never inspects this map.
+      _scenarioState = result.state ?? _scenarioState;
+
       context.read<AppState>().applyResult(result.scores);
       _runningTotal = _runningTotal + result.scores;
       _breakdown.add(TurnBreakdown(
@@ -295,6 +347,17 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
               .add(_TranscriptEntry.feedback(result.scores, result.reasons));
         });
         _scrollToBottom();
+      }
+
+      // Beat — the immediate ripple of the choice just made. Rendered as
+      // narration between the player's reply and the next character's
+      // message. Never merged into the next node's message (it would
+      // inherit SceneCard styling and read as spoken dialogue).
+      if (result.beat != null && result.beat!.isNotEmpty) {
+        setState(() => _transcript.add(_TranscriptEntry.beat(result.beat!)));
+        _scrollToBottom();
+        await Future.delayed(_beatHoldDuration);
+        if (!mounted) return;
       }
 
       if (result.terminal) {
@@ -332,10 +395,23 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       final nextNode = result.node!;
       setState(() => _presentationState = _NodePresentationState.transitioning);
 
-      // Reaction delay — typing indicator shows while we "wait" for
-      // the character to respond. Only in Neighbourhood.
+      // Claim the reveal token BEFORE the interstitial so a back-nav
+      // during the hold can't render a card for an abandoned node.
+      final token = ++_revealToken;
+
+      final interstitial = nextNode.interstitial;
+      if (interstitial != null && interstitial.label.trim().isNotEmpty) {
+        await showInterstitial(
+          context,
+          district: widget.district,
+          label: interstitial.label,
+          duration: interstitial.duration,
+        );
+        if (!mounted || token != _revealToken) return;
+      }
+
       await _waitForReaction(nextNode);
-      if (!mounted) return;
+      if (!mounted || token != _revealToken) return;
 
       _trackLocation(nextNode);
       setState(() {
@@ -343,13 +419,14 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         _presentationState = _NodePresentationState.revealing;
         if (!_isModalNode(nextNode)) {
           _transcript.add(_TranscriptEntry.persona(
-            nextNode.message,
+            nextNode.message ?? '',
             presentation: nextNode.presentation,
+            thread: nextNode.thread,
           ));
         }
       });
       _scrollToBottom();
-      await _revealNode(nextNode);
+      await _revealNode(nextNode, token: token);
       return;
     } catch (error) {
       if (!mounted) return;
@@ -407,6 +484,20 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       );
     }
 
+    // Non-modal messages fallback. No scenario uses this today (every
+    // messages node in The Secret is modal), but kept for symmetry with
+    // the other presentation types.
+    if (presentation != null && presentation.type == 'messages') {
+      final data = presentation.data;
+      final character = data['character'] as Map<String, dynamic>? ?? {};
+      return MessagesCard(
+        district: widget.district,
+        contactName: character['name'] as String? ?? scenario.persona.name,
+        contactRole: character['role'] as String? ?? scenario.persona.role,
+        thread: entry.thread ?? const [],
+      );
+    }
+
     return PersonaBubble(
       district: widget.district,
       name: scenario.persona.name,
@@ -447,7 +538,6 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
               return Column(
                 children: [
-                  // Header: back button + title.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
                     child: Row(
@@ -472,9 +562,6 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                       ],
                     ),
                   ),
-                  // Location progress strip — shows where the player has
-                  // been, filling in as they move through the scenario.
-                  // Only renders if there's more than one visited location.
                   if (_isNeighborhood && _visitedLocations.length > 1)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -506,6 +593,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
                                       district: district,
                                       compact: true,
                                     ),
+                                  _EntryKind.beat =>
+                                    _BeatLine(text: entry.text),
                                   _EntryKind.persona => _buildPersonaEntry(
                                       context, scenario, entry),
                                 },
@@ -616,11 +705,41 @@ class _LocationStrip extends StatelessWidget {
   }
 }
 
+/// The ripple from a single choice — "Alex relaxes. But the question
+/// hangs in the room like smoke." Sits between the player's reply and
+/// whatever comes next. Styled as narration, deliberately unlike both
+/// PlayerBubble and PersonaBubble so it never reads as dialogue.
+class _BeatLine extends StatelessWidget {
+  final String text;
+
+  const _BeatLine({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.7,
+            fontStyle: FontStyle.italic,
+            color: Colors.white.withValues(alpha: 0.52),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A final emotional beat before the outcome screen — no choices, just a
 /// moment to sit with what happened. Renders as a minimal, centered text
 /// card over a darkened backdrop, with a single "Continue" to dismiss.
-/// The absence of any UI chrome (no avatar, no location strip, no
-/// choices) is deliberate — this is the quiet after the storm.
 class _LandingScene extends StatelessWidget {
   final DistrictTheme district;
   final String text;
