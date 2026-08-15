@@ -438,6 +438,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
               totalScores: _runningTotal,
               consequence: result.consequence ?? '',
               outcomeExplanation: result.outcomeExplanation ?? '',
+              reflectionTitle: result.reflectionTitle,
+              reflectionText: result.reflectionText,
               breakdown: List.unmodifiable(_breakdown),
             ),
           ),

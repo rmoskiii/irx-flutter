@@ -230,6 +230,13 @@ class TurnResult {
   final String? outcomeExplanation;
   final String? landing;
 
+  /// Present on reflection-mode scenarios (The Secret) instead of
+  /// [outcomeExplanation]. Pattern-matched prose describing the shape of
+  /// what the player did — not a graded score. When these are non-null,
+  /// the outcome screen must not render a ring or a numeric headline.
+  final String? reflectionTitle;
+  final String? reflectionText;
+
   const TurnResult({
     required this.scores,
     required this.reasons,
@@ -240,6 +247,8 @@ class TurnResult {
     this.consequence,
     this.outcomeExplanation,
     this.landing,
+    this.reflectionTitle,
+    this.reflectionText,
   });
 
   factory TurnResult.fromJson(Map<String, dynamic> json) {
@@ -260,6 +269,8 @@ class TurnResult {
       consequence: json['consequence'] as String?,
       outcomeExplanation: json['outcomeExplanation'] as String?,
       landing: json['landing'] as String?,
+      reflectionTitle: json['reflectionTitle'] as String?,
+      reflectionText: json['reflectionText'] as String?,
     );
   }
 }

@@ -15,15 +15,26 @@ class OutcomeScreen extends StatefulWidget {
 
   /// Sum of every turn's score delta across the whole playthrough, not
   /// just the final choice - so a 3-turn conversation shows credit (or
-  /// blame) for the whole path, not only the last step.
+  /// blame) for the whole path, not only the last step. Still computed
+  /// and still flows to the cross-scenario home-screen stat pool via
+  /// AppState — reflection mode only changes what THIS screen shows,
+  /// not whether the stats accumulate.
   final StatDelta totalScores;
   final String consequence;
   final String outcomeExplanation;
 
+  /// Reflection-mode fields (The Secret). When [reflectionTitle] is
+  /// non-null, this screen renders pattern-matched prose instead of a
+  /// score ring and numeric headline — no ring, no totals, no "you beat
+  /// X%" framing. [outcomeExplanation] is ignored in this mode.
+  final String? reflectionTitle;
+  final String? reflectionText;
+
   /// Every turn played, in order - the "how we got here" ledger. This is
   /// what makes the final totals feel earned rather than asserted. For
   /// districts that hide scores during play (Neighbourhood), this is
-  /// also the FIRST time the player sees any of these numbers at all.
+  /// also the FIRST time the player sees any of these numbers at all —
+  /// and in reflection mode, the ONLY place any number appears here.
   final List<TurnBreakdown> breakdown;
 
   const OutcomeScreen({
@@ -33,8 +44,13 @@ class OutcomeScreen extends StatefulWidget {
     required this.totalScores,
     required this.consequence,
     required this.outcomeExplanation,
+    this.reflectionTitle,
+    this.reflectionText,
     required this.breakdown,
   });
+
+  bool get isReflectionMode =>
+      reflectionTitle != null && reflectionTitle!.isNotEmpty;
 
   @override
   State<OutcomeScreen> createState() => _OutcomeScreenState();
@@ -54,14 +70,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   DistrictTheme get district => widget.district;
   StatDelta get totalScores => widget.totalScores;
   List<TurnBreakdown> get breakdown => widget.breakdown;
-
-  String get _headline {
-    final total = totalScores.total;
-    if (total >= 60) return 'Excellent judgment.';
-    if (total >= 25) return 'Good call.';
-    if (total >= 0) return 'You got through it.';
-    return 'That one stung.';
-  }
+  bool get _reflectionMode => widget.isReflectionMode;
 
   @override
   void initState() {
@@ -88,6 +97,10 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
 
     await Future.delayed(const Duration(milliseconds: 420));
     if (!mounted) return;
+    // In reflection mode there's no ring, but _showScore still gates the
+    // TOTALS section, which we also suppress — so this just governs the
+    // gap before actions appear. Kept as one flag rather than two so the
+    // pacing stays identical between modes.
     setState(() => _showScore = true);
 
     await Future.delayed(const Duration(milliseconds: 650));
@@ -98,7 +111,8 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   @override
   Widget build(BuildContext context) {
     // A rough 0-100 read on the whole playthrough, purely for the ring
-    // display - the real signal is the breakdown below it.
+    // display - the real signal is the breakdown below it. Unused in
+    // reflection mode.
     final displayScore = (50 + totalScores.total).clamp(0, 100);
 
     return Scaffold(
@@ -132,11 +146,17 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   duration: _sectionFade,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 24),
-                    child: Text(
-                      widget.outcomeExplanation,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
+                    child: _reflectionMode
+                        ? _ReflectionBlock(
+                            title: widget.reflectionTitle!,
+                            text: widget.reflectionText ?? '',
+                            district: district,
+                          )
+                        : Text(
+                            widget.outcomeExplanation,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
                   ),
                 ),
                 if (_revealedTurns > 0) ...[
@@ -155,36 +175,39 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       child: _BreakdownTurn(turn: turn, district: district),
                     ),
                 ],
-                _RevealIn(
-                  visible: _showScore,
-                  duration: const Duration(milliseconds: 700),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 20),
-                    child: Column(
-                      children: [
-                        ScoreRing(score: displayScore, color: district.accent),
-                        const SizedBox(height: 16),
-                        Text(_headline,
-                            style: Theme.of(context).textTheme.titleLarge),
-                        const SizedBox(height: 24),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'TOTALS',
-                            style: Theme.of(context).textTheme.labelSmall,
+                // Score ring + numeric totals are suppressed entirely in
+                // reflection mode. No ring, no headline, no per-stat
+                // numbers on this screen — the breakdown above already
+                // carries the "why" for each turn without a final grade
+                // attached to it.
+                if (!_reflectionMode)
+                  _RevealIn(
+                    visible: _showScore,
+                    duration: const Duration(milliseconds: 700),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Column(
+                        children: [
+                          ScoreRing(score: displayScore, color: district.accent),
+                          const SizedBox(height: 16),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'TOTALS',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        _StatDeltaRow(label: 'SAVVY', value: totalScores.savvy),
-                        _StatDeltaRow(
-                            label: 'INTEGRITY', value: totalScores.integrity),
-                        _StatDeltaRow(
-                            label: 'STREET SMARTS',
-                            value: totalScores.streetSmarts),
-                      ],
+                          const SizedBox(height: 8),
+                          _StatDeltaRow(label: 'SAVVY', value: totalScores.savvy),
+                          _StatDeltaRow(
+                              label: 'INTEGRITY', value: totalScores.integrity),
+                          _StatDeltaRow(
+                              label: 'STREET SMARTS',
+                              value: totalScores.streetSmarts),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 _RevealIn(
                   visible: _showActions,
                   duration: _sectionFade,
@@ -243,6 +266,46 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Reflection-mode replacement for the numeric explanation text — a
+/// short title plus a paragraph of pattern-matched prose. Deliberately
+/// typographic, not iconographic: no ring, no badge, no score-shaped
+/// container. The title reads like a chapter heading for what happened,
+/// not a grade.
+class _ReflectionBlock extends StatelessWidget {
+  final String title;
+  final String text;
+  final DistrictTheme district;
+
+  const _ReflectionBlock({
+    required this.title,
+    required this.text,
+    required this.district,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          title.toUpperCase(),
+          textAlign: TextAlign.center,
+          style: district.labelFont().copyWith(
+                fontSize: 13,
+                letterSpacing: 1.1,
+                color: district.accent,
+              ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+        ),
+      ],
     );
   }
 }
