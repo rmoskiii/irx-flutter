@@ -431,19 +431,22 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
         if (!mounted) return;
         Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => OutcomeScreen(
-              district: widget.district,
-              scenarioId: _scenario!.scenarioId,
-              totalScores: _runningTotal,
-              consequence: result.consequence ?? '',
-              outcomeExplanation: result.outcomeExplanation ?? '',
-              reflectionTitle: result.reflectionTitle,
-              reflectionText: result.reflectionText,
-              breakdown: List.unmodifiable(_breakdown),
-            ),
-          ),
-        );
+  MaterialPageRoute(
+    builder: (_) => OutcomeScreen(
+      district: widget.district,
+      scenarioId: _scenario!.scenarioId,
+      totalScores: _runningTotal,
+      consequence: result.consequence ?? '',
+      outcomeExplanation: result.outcomeExplanation ?? '',
+      reflectionTitle: result.reflectionTitle,
+      reflectionText: result.reflectionText,
+      jessicaAftermath: result.jessicaAftermath,
+      alexAftermath: result.alexAftermath,
+      finalMessage: result.finalMessage,
+      breakdown: List.unmodifiable(_breakdown),
+    ),
+  ),
+);
         return;
       }
 

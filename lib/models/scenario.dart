@@ -229,13 +229,20 @@ class TurnResult {
   final String? consequence;
   final String? outcomeExplanation;
   final String? landing;
-
-  /// Present on reflection-mode scenarios (The Secret) instead of
-  /// [outcomeExplanation]. Pattern-matched prose describing the shape of
-  /// what the player did — not a graded score. When these are non-null,
-  /// the outcome screen must not render a ring or a numeric headline.
   final String? reflectionTitle;
   final String? reflectionText;
+
+  /// Aftermath prose, resolved server-side at terminal time against the
+  /// player's accumulated loyalty and the couple's fate. Deliberately three
+  /// separate fields rather than one blob — the asymmetry between what
+  /// Jessica got and what Alex got IS the payoff, and it only reads if
+  /// they're rendered as two distinct, labelled blocks.
+  final String? jessicaAftermath;
+  final String? alexAftermath;
+
+  /// The loyalty reveal. Names the pattern the player may not have known
+  /// they were forming.
+  final String? finalMessage;
 
   const TurnResult({
     required this.scores,
@@ -249,6 +256,9 @@ class TurnResult {
     this.landing,
     this.reflectionTitle,
     this.reflectionText,
+    this.jessicaAftermath,
+    this.alexAftermath,
+    this.finalMessage,
   });
 
   factory TurnResult.fromJson(Map<String, dynamic> json) {
@@ -271,6 +281,9 @@ class TurnResult {
       landing: json['landing'] as String?,
       reflectionTitle: json['reflectionTitle'] as String?,
       reflectionText: json['reflectionText'] as String?,
+      jessicaAftermath: json['jessicaAftermath'] as String?,
+      alexAftermath: json['alexAftermath'] as String?,
+      finalMessage: json['finalMessage'] as String?,
     );
   }
 }
