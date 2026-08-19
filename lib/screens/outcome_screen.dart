@@ -336,6 +336,25 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                     padding: const EdgeInsets.only(top: 32),
                     child: Column(
                       children: [
+                        // Applies regardless of grading mode (reflection or
+                        // tier) — the premise that different choices
+                        // produce a different outcome holds either way.
+                        // Sits directly above Replay so the invitation is
+                        // read immediately before the button that acts on
+                        // it.
+                        Text(
+                          "Replay this scenario to see how the outcome "
+                          "could've changed with different responses.",
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                color: AppColors.textMuted,
+                                height: 1.5,
+                              ),
+                        ),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(

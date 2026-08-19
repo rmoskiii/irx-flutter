@@ -12,16 +12,18 @@ import 'scenario_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  // Hardcoded for now, matching what's actually built (Prince + Bank for
-  // Digital, Secret + Favor for Neighbourhood). Once the home screen
-  // fetches GET /api/scenarios/list, this becomes a real count instead of
-  // a maintained constant - flagged as a near-term follow-up.
+  // Hardcoded for now, matching what's actually built. MVP ships one
+  // anchor scenario per live district — The Prince for Digital, The
+  // Secret for Neighbourhood — with The Bank and The Favor intentionally
+  // stale/parked rather than counted here. Once the home screen fetches
+  // GET /api/scenarios/list, this becomes a real count instead of a
+  // maintained constant - flagged as a near-term follow-up.
   String _scenarioCountLabel(String districtId) {
     switch (districtId) {
       case 'digital':
-        return '2 scenarios live';
+        return '1 scenario live';
       case 'neighborhood':
-        return '2 scenarios live';
+        return '1 scenario live';
       default:
         return '';
     }
