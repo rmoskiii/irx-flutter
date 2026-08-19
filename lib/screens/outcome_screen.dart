@@ -6,41 +6,44 @@ import '../widgets/score_feedback.dart';
 import '../widgets/score_ring.dart';
 import 'scenario_screen.dart';
 
-/// Reveal stages, in narrative order. The aftermath blocks land BEFORE the
-/// reflection and the ledger: the player should learn what happened to
-/// Jessica and Alex, and whose side each of them thinks they were on,
-/// before being handed any summary of themselves.
-enum _Stage {
-  none,
-  consequence,
-  jessicaAftermath,
-  alexAftermath,
-  finalMessage,
-  reflection,
-  breakdown,
-  score,
-  actions,
-}
-
+/// Reveal order is narrative, not structural: consequence → each aftermath
+/// slot in authored order → final message → reflection → ledger → totals.
+/// The aftermath blocks land BEFORE any summary of the player, because they
+/// should learn what happened to everyone else before being told what it
+/// says about them.
+///
+/// Stages are integers rather than an enum because the number of aftermath
+/// blocks is scenario-authored — The Secret sends two (jessica, alex), The
+/// Prince sends three (money, data, everyone_else), and a future scenario
+/// may send one or none. The stage indices below are computed from the map
+/// the backend actually sent.
 class OutcomeScreen extends StatefulWidget {
   final DistrictTheme district;
   final String scenarioId;
 
   /// Still accumulated, still flows to the home-screen stat pool via
-  /// AppState. Only rendered here in legacy (score-tier) mode.
+  /// AppState. Only rendered here when the scenario grades on score tiers.
   final StatDelta totalScores;
   final String consequence;
+
+  /// Tier explanation. Present only if the scenario authored `outcomeTiers`.
+  /// No longer mutually exclusive with the reflection — a scenario may send
+  /// both, in which case the reflection is the headline and this sits under
+  /// it as a secondary line.
   final String outcomeExplanation;
 
-  /// Reflection mode (The Secret). When [reflectionTitle] is non-null, no
-  /// ring and no numeric headline are rendered.
+  /// Pattern-matched prose. When present, the ring and numeric totals are
+  /// suppressed: a scenario that reflects should not also be handing out a
+  /// number as its verdict.
   final String? reflectionTitle;
   final String? reflectionText;
 
-  /// Aftermath prose. Rendered as two separately-labelled blocks so the
-  /// asymmetry between the two friendships is impossible to miss.
-  final String? jessicaAftermath;
-  final String? alexAftermath;
+  /// Slot-keyed aftermath. Keys are authored by the scenario and rendered
+  /// as labels, so they're written knowing they'll be shown. Insertion
+  /// order from the JSON is preserved through jsonDecode and drives both
+  /// display order and reveal order.
+  final Map<String, String>? aftermath;
+
   final String? finalMessage;
 
   final List<TurnBreakdown> breakdown;
@@ -54,8 +57,7 @@ class OutcomeScreen extends StatefulWidget {
     required this.outcomeExplanation,
     this.reflectionTitle,
     this.reflectionText,
-    this.jessicaAftermath,
-    this.alexAftermath,
+    this.aftermath,
     this.finalMessage,
     required this.breakdown,
   });
@@ -73,7 +75,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   static const _minHold = Duration(milliseconds: 1600);
   static const _maxHold = Duration(milliseconds: 6000);
 
-  _Stage _stage = _Stage.none;
+  int _stage = 0;
   int _revealedTurns = 0;
 
   DistrictTheme get district => widget.district;
@@ -81,11 +83,31 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   List<TurnBreakdown> get breakdown => widget.breakdown;
   bool get _reflectionMode => widget.isReflectionMode;
 
-  bool _at(_Stage s) => _stage.index >= s.index;
+  /// Empty-valued slots are dropped here rather than rendered as a bare
+  /// header, so a scenario whose variants didn't all match doesn't leave a
+  /// labelled gap on the screen.
+  late final List<MapEntry<String, String>> _slots = (widget.aftermath ?? {})
+      .entries
+      .where((e) => e.value.trim().isNotEmpty)
+      .toList(growable: false);
 
-  /// Hold proportional to how much there is to read. The aftermath blocks
-  /// are 60-90 words each and are the emotional payoff of the whole
-  /// scenario — a flat 1.5s buries them the way the old beat timing did.
+  bool get _hasTier => widget.outcomeExplanation.trim().isNotEmpty;
+  bool get _hasFinal =>
+      widget.finalMessage != null && widget.finalMessage!.trim().isNotEmpty;
+
+  static const int _stConsequence = 1;
+  int _stSlot(int i) => 2 + i;
+  int get _stFinalMessage => 2 + _slots.length;
+  int get _stReflection => _stFinalMessage + 1;
+  int get _stBreakdown => _stReflection + 1;
+  int get _stScore => _stBreakdown + 1;
+  int get _stActions => _stScore + 1;
+
+  bool _at(int stage) => _stage >= stage;
+
+  /// Hold proportional to how much there is to read. Aftermath blocks run
+  /// 60–90 words and are the payoff of the whole scenario — a flat 1.5s
+  /// buries them.
   Duration _holdFor(String? text) {
     if (text == null || text.trim().isEmpty) return Duration.zero;
     final words = text.trim().split(RegExp(r'\s+')).length;
@@ -95,21 +117,13 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     );
   }
 
-  String get _headline {
-    final total = totalScores.total;
-    if (total >= 60) return 'Excellent judgment.';
-    if (total >= 25) return 'Good call.';
-    if (total >= 0) return 'You got through it.';
-    return 'That one stung.';
-  }
-
   @override
   void initState() {
     super.initState();
     _runReveal();
   }
 
-  Future<bool> _advance(_Stage to, {Duration? after}) async {
+  Future<bool> _advance(int to, {Duration? after}) async {
     if (after != null && after > Duration.zero) {
       await Future.delayed(after);
     }
@@ -119,22 +133,22 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   }
 
   Future<void> _runReveal() async {
-    if (!await _advance(_Stage.consequence,
+    if (!await _advance(_stConsequence,
         after: const Duration(milliseconds: 180))) return;
 
-    if (!await _advance(_Stage.jessicaAftermath,
-        after: _holdFor(widget.consequence))) return;
+    // Each slot holds for the length of whatever preceded it.
+    var previous = widget.consequence;
+    for (var i = 0; i < _slots.length; i++) {
+      if (!await _advance(_stSlot(i), after: _holdFor(previous))) return;
+      previous = _slots[i].value;
+    }
 
-    if (!await _advance(_Stage.alexAftermath,
-        after: _holdFor(widget.jessicaAftermath))) return;
+    if (!await _advance(_stFinalMessage, after: _holdFor(previous))) return;
+    if (!await _advance(_stReflection, after: _holdFor(widget.finalMessage))) {
+      return;
+    }
 
-    if (!await _advance(_Stage.finalMessage,
-        after: _holdFor(widget.alexAftermath))) return;
-
-    if (!await _advance(_Stage.reflection,
-        after: _holdFor(widget.finalMessage))) return;
-
-    if (!await _advance(_Stage.breakdown,
+    if (!await _advance(_stBreakdown,
         after: _holdFor(widget.reflectionText ?? widget.outcomeExplanation))) {
       return;
     }
@@ -145,21 +159,16 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
       if (!mounted) return;
     }
 
-    if (!await _advance(_Stage.score,
-        after: const Duration(milliseconds: 420))) return;
+    if (!await _advance(_stScore, after: const Duration(milliseconds: 420))) {
+      return;
+    }
 
-    await _advance(_Stage.actions, after: const Duration(milliseconds: 650));
+    await _advance(_stActions, after: const Duration(milliseconds: 650));
   }
 
   @override
   Widget build(BuildContext context) {
     final displayScore = (50 + totalScores.total).clamp(0, 100);
-    final hasJessica =
-        widget.jessicaAftermath != null && widget.jessicaAftermath!.isNotEmpty;
-    final hasAlex =
-        widget.alexAftermath != null && widget.alexAftermath!.isNotEmpty;
-    final hasFinal =
-        widget.finalMessage != null && widget.finalMessage!.isNotEmpty;
 
     return Scaffold(
       body: SafeArea(
@@ -174,7 +183,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
 
                 // The immediate consequence of the final choice.
                 _RevealIn(
-                  visible: _at(_Stage.consequence),
+                  visible: _at(_stConsequence),
                   duration: _sectionFade,
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -190,33 +199,26 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   ),
                 ),
 
-                // Two friendships, resolved separately and labelled by name.
-                if (hasJessica)
+                // Aftermath, one labelled block per slot. Reading them back
+                // to back is what makes an asymmetric outcome legible as
+                // asymmetric — two friendships in The Secret, three kinds of
+                // damage in The Prince.
+                for (var i = 0; i < _slots.length; i++)
                   _RevealIn(
-                    visible: _at(_Stage.jessicaAftermath),
+                    visible: _at(_stSlot(i)),
                     duration: _sectionFade,
                     child: _AftermathBlock(
-                      name: 'JESSICA',
-                      text: widget.jessicaAftermath!,
-                      district: district,
-                    ),
-                  ),
-                if (hasAlex)
-                  _RevealIn(
-                    visible: _at(_Stage.alexAftermath),
-                    duration: _sectionFade,
-                    child: _AftermathBlock(
-                      name: 'ALEX',
-                      text: widget.alexAftermath!,
+                      label: _slotLabel(_slots[i].key),
+                      text: _slots[i].value,
                       district: district,
                     ),
                   ),
 
-                // The loyalty reveal. No header — it isn't about either of
-                // them individually, it's the thing sitting underneath both.
-                if (hasFinal)
+                // The pattern reveal. No header — it isn't about any one of
+                // them, it's the thing sitting underneath all of it.
+                if (_hasFinal)
                   _RevealIn(
-                    visible: _at(_Stage.finalMessage),
+                    visible: _at(_stFinalMessage),
                     duration: _sectionFade,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 32),
@@ -241,27 +243,45 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                     ),
                   ),
 
-                // Reflection title + prose (or the legacy tier explanation).
+                // Reflection, tier explanation, or both. When a scenario
+                // sends both, the reflection is the headline and the tier
+                // line sits beneath it, dimmed — it's a coarser statement
+                // about the same run, not a competing one.
                 _RevealIn(
-                  visible: _at(_Stage.reflection),
+                  visible: _at(_stReflection),
                   duration: _sectionFade,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 32),
-                    child: _reflectionMode
-                        ? _ReflectionBlock(
+                    child: Column(
+                      children: [
+                        if (_reflectionMode)
+                          _ReflectionBlock(
                             title: widget.reflectionTitle!,
                             text: widget.reflectionText ?? '',
                             district: district,
-                          )
-                        : Text(
+                          ),
+                        if (_reflectionMode && _hasTier)
+                          const SizedBox(height: 18),
+                        if (_hasTier)
+                          Text(
                             widget.outcomeExplanation,
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge,
+                            style: _reflectionMode
+                                ? Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: AppColors.textMuted,
+                                      height: 1.6,
+                                    )
+                                : Theme.of(context).textTheme.bodyLarge,
                           ),
+                      ],
+                    ),
                   ),
                 ),
 
-                if (_at(_Stage.breakdown) && _revealedTurns > 0) ...[
+                if (_at(_stBreakdown) && _revealedTurns > 0) ...[
                   const SizedBox(height: 32),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -281,16 +301,13 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                 // Ring + totals suppressed entirely in reflection mode.
                 if (!_reflectionMode)
                   _RevealIn(
-                    visible: _at(_Stage.score),
+                    visible: _at(_stScore),
                     duration: const Duration(milliseconds: 700),
                     child: Padding(
                       padding: const EdgeInsets.only(top: 20),
                       child: Column(
                         children: [
                           ScoreRing(score: displayScore, color: district.accent),
-                          const SizedBox(height: 16),
-                          Text(_headline,
-                              style: Theme.of(context).textTheme.titleLarge),
                           const SizedBox(height: 24),
                           Align(
                             alignment: Alignment.centerLeft,
@@ -313,7 +330,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   ),
 
                 _RevealIn(
-                  visible: _at(_Stage.actions),
+                  visible: _at(_stActions),
                   duration: _sectionFade,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 32),
@@ -374,16 +391,20 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   }
 }
 
-/// One character's aftermath, headed by their name. The name header is the
-/// whole point — reading "JESSICA ... ALEX ..." back to back is what makes
-/// an asymmetric outcome legible as asymmetric.
+/// Slot keys are authored to be displayed. Underscores become spaces so a
+/// scenario can write `everyone_else` and get "EVERYONE ELSE" without the
+/// client holding a per-scenario label table.
+String _slotLabel(String key) =>
+    key.replaceAll('_', ' ').replaceAll('-', ' ').toUpperCase();
+
+/// One aftermath slot, headed by its label.
 class _AftermathBlock extends StatelessWidget {
-  final String name;
+  final String label;
   final String text;
   final DistrictTheme district;
 
   const _AftermathBlock({
-    required this.name,
+    required this.label,
     required this.text,
     required this.district,
   });
@@ -398,7 +419,7 @@ class _AftermathBlock extends StatelessWidget {
           Row(
             children: [
               Text(
-                name,
+                label,
                 style: district.labelFont().copyWith(
                       fontSize: 11,
                       letterSpacing: 1.6,
@@ -425,9 +446,8 @@ class _AftermathBlock extends StatelessWidget {
   }
 }
 
-/// Reflection-mode replacement for the numeric explanation — short title
-/// plus pattern-matched prose. Typographic, not iconographic: no ring, no
-/// badge, no score-shaped container.
+/// Short title plus pattern-matched prose. Typographic, not iconographic:
+/// no ring, no badge, no score-shaped container.
 class _ReflectionBlock extends StatelessWidget {
   final String title;
   final String text;

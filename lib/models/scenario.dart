@@ -149,6 +149,7 @@ class Scenario {
   final String title;
   final String district;
   final int difficulty;
+  final String revealTiming;
   final Persona persona;
   final Map<String, dynamic> state;
   final ScenarioNode node;
@@ -158,6 +159,7 @@ class Scenario {
     required this.title,
     required this.district,
     required this.difficulty,
+    required this.revealTiming,
     required this.persona,
     required this.state,
     required this.node,
@@ -169,6 +171,9 @@ class Scenario {
       title: json['title'] as String,
       district: json['district'] as String,
       difficulty: json['difficulty'] as int,
+      revealTiming: json['revealTiming'] as String? ??
+          (json['scoring'] as Map?)?['revealTiming'] as String? ??
+          'immediate',
       persona: Persona.fromJson(json['persona'] as Map<String, dynamic>),
       state: Map<String, dynamic>.from((json['state'] as Map?) ?? const {}),
       node: ScenarioNode.fromJson(json['node'] as Map<String, dynamic>),
@@ -232,13 +237,11 @@ class TurnResult {
   final String? reflectionTitle;
   final String? reflectionText;
 
-  /// Aftermath prose, resolved server-side at terminal time against the
-  /// player's accumulated loyalty and the couple's fate. Deliberately three
-  /// separate fields rather than one blob — the asymmetry between what
-  /// Jessica got and what Alex got IS the payoff, and it only reads if
-  /// they're rendered as two distinct, labelled blocks.
-  final String? jessicaAftermath;
-  final String? alexAftermath;
+  /// Slot-keyed aftermath prose, resolved server-side at terminal time.
+  /// Slot names are scenario-authored (The Secret: jessica/alex; The Prince:
+  /// money/data/others) — the client renders whatever it's handed, in the
+  /// order the map arrives, and knows none of the names.
+  final Map<String, String>? aftermath;
 
   /// The loyalty reveal. Names the pattern the player may not have known
   /// they were forming.
@@ -256,8 +259,7 @@ class TurnResult {
     this.landing,
     this.reflectionTitle,
     this.reflectionText,
-    this.jessicaAftermath,
-    this.alexAftermath,
+    this.aftermath,
     this.finalMessage,
   });
 
@@ -281,8 +283,9 @@ class TurnResult {
       landing: json['landing'] as String?,
       reflectionTitle: json['reflectionTitle'] as String?,
       reflectionText: json['reflectionText'] as String?,
-      jessicaAftermath: json['jessicaAftermath'] as String?,
-      alexAftermath: json['alexAftermath'] as String?,
+      aftermath: (json['aftermath'] as Map?)?.map(
+        (key, value) => MapEntry(key as String, value as String),
+      ),
       finalMessage: json['finalMessage'] as String?,
     );
   }

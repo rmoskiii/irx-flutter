@@ -18,6 +18,7 @@ import '../widgets/player_bubble.dart';
 import '../widgets/scene_card.dart';
 import '../widgets/scene_modal.dart';
 import '../widgets/score_feedback.dart';
+import '../widgets/search_results_card.dart';
 import '../widgets/sms_card.dart';
 import '../widgets/typing_indicator.dart';
 import 'outcome_screen.dart';
@@ -37,7 +38,8 @@ const _defaultInlineRevealDuration = Duration(milliseconds: 280);
 const _modalDismissDwell = Duration(milliseconds: 600);
 
 /// One entry in the on-screen transcript. A persona entry carries either
-/// [text] (chat/scene/email/sms) OR [thread] (messages) — never both.
+/// [text] (chat/scene/email/sms/search_results) OR [thread] (messages) —
+/// never both.
 class _TranscriptEntry {
   final _EntryKind kind;
   final String text;
@@ -126,6 +128,14 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   int _revealToken = 0;
 
   bool get _isNeighborhood => widget.district.id == 'neighborhood';
+
+  /// Whether per-turn score reasons are suppressed during play. Declared by
+  /// the scenario rather than inferred from its district: The Prince is
+  /// Digital but must hide deltas, because visible numbers let a player
+  /// shop the verification menu — the exact skill under test. The full
+  /// ledger still appears on the outcome screen either way.
+  bool get _hidesInlineFeedback => _scenario?.revealTiming == 'end_only';
+
   bool get _choiceInputLocked =>
       _presentationState != _NodePresentationState.waitingForChoice;
 
@@ -225,12 +235,14 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     });
   }
 
-  /// Waits for the node's reaction delay (if any) while showing a typing
-  /// indicator. Only fires for Neighbourhood-style scenarios — Digital
-  /// scenarios skip this entirely since their pacing is meant to feel
-  /// immediate/functional, not conversational.
+  /// Waits for the node's reaction delay while showing a typing indicator.
+  ///
+  /// Driven by the presence of an authored `reactionDelay` rather than by
+  /// district. Digital scenarios that want the old immediate/functional
+  /// pacing simply don't author one and this no-ops, exactly as before —
+  /// but The Prince, which is Digital and deliberately slow, gets the
+  /// pauses it asks for instead of having them discarded.
   Future<void> _waitForReaction(ScenarioNode node) async {
-    if (!_isNeighborhood) return;
     // An interstitial is already a pause. Running both back-to-back gives
     // 4.5s of blank screen on exactly the beats that matter most.
     if (node.interstitial != null) return;
@@ -393,8 +405,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         reasons: result.reasons,
       ));
 
-      // Digital shows reasoning immediately; Neighbourhood hides it.
-      if (!_isNeighborhood) {
+      // Reveal timing is declared by the scenario, not inferred from the
+      // district it lives in.
+      if (!_hidesInlineFeedback) {
         setState(() {
           _transcript
               .add(_TranscriptEntry.feedback(result.scores, result.reasons));
@@ -431,22 +444,21 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
         if (!mounted) return;
         Navigator.of(context).push(
-  MaterialPageRoute(
-    builder: (_) => OutcomeScreen(
-      district: widget.district,
-      scenarioId: _scenario!.scenarioId,
-      totalScores: _runningTotal,
-      consequence: result.consequence ?? '',
-      outcomeExplanation: result.outcomeExplanation ?? '',
-      reflectionTitle: result.reflectionTitle,
-      reflectionText: result.reflectionText,
-      jessicaAftermath: result.jessicaAftermath,
-      alexAftermath: result.alexAftermath,
-      finalMessage: result.finalMessage,
-      breakdown: List.unmodifiable(_breakdown),
-    ),
-  ),
-);
+          MaterialPageRoute(
+            builder: (_) => OutcomeScreen(
+              district: widget.district,
+              scenarioId: _scenario!.scenarioId,
+              totalScores: _runningTotal,
+              consequence: result.consequence ?? '',
+              outcomeExplanation: result.outcomeExplanation ?? '',
+              reflectionTitle: result.reflectionTitle,
+              reflectionText: result.reflectionText,
+              aftermath: result.aftermath,
+              finalMessage: result.finalMessage,
+              breakdown: List.unmodifiable(_breakdown),
+            ),
+          ),
+        );
         return;
       }
 
@@ -526,6 +538,36 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         sender: data['sender'] as String? ?? scenario.persona.name,
         senderNumber: data['senderNumber'] as String? ?? '',
         body: entry.text,
+      );
+    }
+
+    // A results page for a query the player ran themselves. The node's
+    // own message still renders underneath as the narration of what they
+    // found — the card is the artifact, the message is the reading of it.
+    if (presentation != null && presentation.type == 'search_results') {
+      final data = presentation.data;
+      final results = ((data['results'] as List?) ?? const [])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SearchResultsCard(
+            district: widget.district,
+            query: data['query'] as String? ?? '',
+            results: results,
+          ),
+          if (entry.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              entry.text,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(height: 1.55),
+            ),
+          ],
+        ],
       );
     }
 
