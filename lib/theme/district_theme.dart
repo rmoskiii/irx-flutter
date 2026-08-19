@@ -82,9 +82,45 @@ class Districts {
     anchorScenarioId: 'the_secret',
   );
 
-  static final money = DistrictTheme(
-    id: 'money',
-    name: 'Money District',
+  /// Career reads institutional on purpose. Digital's teal is a signal in
+  /// the dark and Neighbourhood's amber is a lit room; Career is fluorescent
+  /// light on a Tuesday - cool, even, slightly airless. The steel blue is
+  /// desaturated enough to sit next to the other two without competing, and
+  /// the gradient is the only one in the app with no warmth in it at all.
+  ///
+  /// IBM Plex Sans over Space Grotesk for the same reason: it's the type
+  /// of a form, a sign-off sheet, a review letter. The district's antagonist
+  /// is partly an organisation, so the chrome should feel like one.
+  static final career = DistrictTheme(
+    id: 'career',
+    name: 'Career District',
+    tagline: 'Hold your ground when someone holds your job.',
+    icon: Icons.badge_outlined,
+    accent: const Color(0xFF7EA6DB),
+    backgroundGradient: const [
+      Color(0xFF0C121B),
+      Color(0xFF101823),
+      Color(0xFF070A0F)
+    ],
+    labelFont: () => GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w500),
+    available: true,
+    anchorScenarioId: 'the_instruction',
+  );
+
+  /// Money was cut from the MVP: it had no distinct antagonist mechanic and
+  /// its good scenarios already belong to other districts (the £650 fee in
+  /// The Prince is a money scenario living in Digital). Money is a substrate
+  /// that appears across districts, not a district.
+  ///
+  /// The fourth district, when one is earned, is Institutions - letting
+  /// agents, HR, debt collectors, claims handlers. The counterparty is
+  /// someone following a script whose job is to say no, which is a genuinely
+  /// new pressure type rather than a reskin. Kept here, unavailable, only if
+  /// you want the roadmap visible on the home screen; otherwise delete it
+  /// and drop it from [all].
+  static final institutions = DistrictTheme(
+    id: 'institutions',
+    name: 'Institutions District',
     tagline: 'Unlocks once judgment earns it',
     icon: Icons.account_balance_outlined,
     accent: const Color(0xFF8A8A90),
@@ -96,21 +132,12 @@ class Districts {
     labelFont: () => GoogleFonts.spaceGrotesk(),
   );
 
-  static final career = DistrictTheme(
-    id: 'career',
-    name: 'Career District',
-    tagline: 'Unlocks once judgment earns it',
-    icon: Icons.badge_outlined,
-    accent: const Color(0xFF8A8A90),
-    backgroundGradient: const [
-      Color(0xFF141416),
-      Color(0xFF101012),
-      Color(0xFF0B0B0C)
-    ],
-    labelFont: () => GoogleFonts.spaceGrotesk(),
-  );
-
-  static final all = <DistrictTheme>[neighborhood, digital, money, career];
+  static final all = <DistrictTheme>[
+    neighborhood,
+    digital,
+    career,
+    institutions,
+  ];
 
   /// Looks up a district by its string id (matches the "district" field
   /// on a scenario) - used by the dev picker to theme a scenario it

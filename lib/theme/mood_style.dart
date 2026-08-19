@@ -161,5 +161,21 @@ class MoodPalette {
     energy: 0.4,
   );
 
-  static MoodStyle of(String mood) => _moods[mood.toLowerCase()] ?? _fallback;
+  /// Authored moods that map onto an existing style rather than earning
+  /// their own. Keeps the palette small while letting scenarios use the
+  /// word that fits the beat.
+  static const Map<String, String> _aliases = {
+    'easy': 'casual',
+    'conceding': 'sheepish',
+    'careful': 'thoughtful',
+    'neutral': 'thoughtful',
+    'distant': 'cold',
+    'polite': 'cold',
+    'flat': 'tired',
+  };
+
+  static MoodStyle of(String mood) {
+    final key = mood.toLowerCase();
+    return _moods[key] ?? _moods[_aliases[key] ?? ''] ?? _fallback;
+  }
 }

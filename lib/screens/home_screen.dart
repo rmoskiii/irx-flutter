@@ -24,6 +24,8 @@ class HomeScreen extends StatelessWidget {
         return '1 scenario live';
       case 'neighborhood':
         return '1 scenario live';
+      case 'career':
+        return '1 scenario live';
       default:
         return '';
     }
