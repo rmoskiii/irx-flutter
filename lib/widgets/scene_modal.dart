@@ -5,6 +5,8 @@ import '../theme/district_theme.dart';
 import '../theme/mood_style.dart';
 import '../utils/reading_time.dart';
 import 'scene_avatar.dart';
+import 'scene_visuals.dart';
+import 'work_artifact_card.dart';
 
 /// The full cinematic treatment for a "scene" presentation flagged
 /// `modal: true` - a soft-focus aurora backdrop tinted to the character's
@@ -69,8 +71,10 @@ class _SceneModalState extends State<SceneModal> {
     final role = character['role'] as String? ?? '';
     final mood = character['mood'] as String? ?? '';
     final location = widget.data['location'] as String? ?? '';
-    final moodStyle = MoodPalette.of(mood);
     final district = widget.district;
+    final moodStyle = MoodPalette.of(mood);
+    final visual = SceneVisualStyle.fromData(district, widget.data);
+    final artifact = widget.data['artifact'] as Map<String, dynamic>?;
     final maxHeight = MediaQuery.of(context).size.height * 0.9;
 
     return Dialog(
@@ -85,8 +89,20 @@ class _SceneModalState extends State<SceneModal> {
               // Base - near-black so the aurora reads as light against
               // dark, not washed out.
               Container(
+                decoration: BoxDecoration(
                   color: Color.fromRGBO(
-                      8, 8, 10, 1.0 - moodStyle.atmosphereBrightness)),
+                      8, 8, 10, 1.0 - moodStyle.atmosphereBrightness),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color.lerp(Colors.black, visual.colors.first, 0.46)!,
+                      Color.lerp(Colors.black, visual.colors[1], 0.36)!,
+                      Colors.black,
+                    ],
+                  ),
+                ),
+              ),
 
               // Aurora backdrop - large soft-focus color blobs, blurred
               // into a wash. This is the "looks expensive" background
@@ -153,6 +169,12 @@ class _SceneModalState extends State<SceneModal> {
                           ),
                         ),
                       const SizedBox(height: 20),
+                      SceneSettingPlate(
+                        visual: visual,
+                        mood: moodStyle,
+                        district: district,
+                      ),
+                      const SizedBox(height: 18),
                       Center(
                         child: SceneAvatar(
                           initial: name.isNotEmpty ? name[0] : '?',
@@ -190,6 +212,15 @@ class _SceneModalState extends State<SceneModal> {
                         ),
                       ),
                       const SizedBox(height: 22),
+                      if (artifact != null) ...[
+                        WorkArtifactCard(
+                          district: district,
+                          data: artifact,
+                          body: artifact['body'] as String? ?? '',
+                          animate: false,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       // Glassmorphic dialogue panel.
                       ClipRRect(
                         borderRadius: BorderRadius.circular(18),
@@ -216,6 +247,11 @@ class _SceneModalState extends State<SceneModal> {
                             ),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 10),
+                      ScenePressureLine(
+                        visual: visual,
+                        accent: moodStyle.primary,
                       ),
                       if (_visibleChoiceCount > 0) ...[
                         const SizedBox(height: 24),

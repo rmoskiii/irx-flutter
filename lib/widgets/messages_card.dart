@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
+import '../theme/mood_style.dart';
 import '../utils/reading_time.dart';
 import 'choice_tile.dart';
+import 'scene_visuals.dart';
 
 /// Renders a "messages" node as a phone thread — bubbles for dialogue,
 /// narration between them for prose. Thread structure comes straight
@@ -310,6 +312,9 @@ class _MessagesModalState extends State<_MessagesModal> {
   Widget build(BuildContext context) {
     final character = widget.data['character'] as Map<String, dynamic>? ?? {};
     final location = widget.data['location'] as String? ?? '';
+    final mood = character['mood'] as String? ?? '';
+    final moodStyle = MoodPalette.of(mood);
+    final visual = SceneVisualStyle.fromData(widget.district, widget.data);
     final typingSegment =
         _typingIndex == null ? null : widget.thread[_typingIndex!];
     final typingSender =
@@ -336,6 +341,13 @@ class _MessagesModalState extends State<_MessagesModal> {
                     ),
                   ),
                 ),
+              SceneSettingPlate(
+                visual: visual,
+                mood: moodStyle,
+                district: widget.district,
+                compact: true,
+              ),
+              const SizedBox(height: 14),
               MessagesCard(
                 district: widget.district,
                 contactName: character['name'] as String? ?? '',

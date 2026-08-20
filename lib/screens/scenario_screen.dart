@@ -21,6 +21,7 @@ import '../widgets/score_feedback.dart';
 import '../widgets/search_results_card.dart';
 import '../widgets/sms_card.dart';
 import '../widgets/typing_indicator.dart';
+import '../widgets/work_artifact_card.dart';
 import 'outcome_screen.dart';
 
 /// Reaction delay floors keyed by the string value in the scenario JSON.
@@ -541,6 +542,14 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       );
     }
 
+    if (presentation != null && presentation.type == 'work_artifact') {
+      return WorkArtifactCard(
+        district: widget.district,
+        data: presentation.data,
+        body: entry.text,
+      );
+    }
+
     // A results page for a query the player ran themselves. The node's
     // own message still renders underneath as the narration of what they
     // found — the card is the artifact, the message is the reading of it.
@@ -561,10 +570,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             const SizedBox(height: 14),
             Text(
               entry.text,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(height: 1.55),
+              style:
+                  Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.55),
             ),
           ],
         ],
@@ -581,6 +588,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         mood: character['mood'] as String? ?? '',
         location: data['location'] as String? ?? '',
         message: entry.text,
+        data: data,
       );
     }
 
