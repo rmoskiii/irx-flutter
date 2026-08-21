@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../content/scenario_intros.dart';
 import '../models/scenario.dart';
 import '../services/api_service.dart';
 import '../state/app_state.dart';
@@ -15,6 +16,7 @@ import '../widgets/messages_card.dart';
 import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
 import '../widgets/player_bubble.dart';
+import '../widgets/scenario_intro_modal.dart';
 import '../widgets/scene_card.dart';
 import '../widgets/scene_modal.dart';
 import '../widgets/score_feedback.dart';
@@ -96,8 +98,22 @@ class ScenarioScreen extends StatefulWidget {
   final DistrictTheme district;
   final String? scenarioIdOverride;
 
-  const ScenarioScreen(
-      {super.key, required this.district, this.scenarioIdOverride});
+  /// Whether to show the framing card before the first node. Replay from
+  /// the outcome screen can pass false to skip it, or leave it true and
+  /// rely on [isReplay] to soften it instead.
+  final bool showIntro;
+
+  /// Softens the intro on a second run: barrier becomes dismissible so
+  /// the player isn't forced through copy they've already read.
+  final bool isReplay;
+
+  const ScenarioScreen({
+    super.key,
+    required this.district,
+    this.scenarioIdOverride,
+    this.showIntro = true,
+    this.isReplay = false,
+  });
 
   @override
   State<ScenarioScreen> createState() => _ScenarioScreenState();
@@ -128,6 +144,12 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   String? _selectedChoiceId;
   int _revealToken = 0;
 
+  /// True while the intro card is up. Suppresses the loading spinner
+  /// underneath it — the scenario future deliberately doesn't resolve
+  /// until the card is dismissed, so without this a spinner sits behind
+  /// the barrier for the whole read.
+  bool _introVisible = false;
+
   bool get _isNeighborhood => widget.district.id == 'neighborhood';
 
   /// Whether per-turn score reasons are suppressed during play. Declared by
@@ -145,12 +167,35 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     super.initState();
     _scenarioFuture = _api
         .fetchTodayScenario(scenarioId: widget.scenarioIdOverride)
-        .then((scenario) {
+        .then((scenario) async {
+      if (!mounted) return scenario;
+
       setState(() {
         _scenario = scenario;
         _currentNodeId = scenario.node.nodeId;
         _scenarioState = scenario.state;
         _presentationState = _NodePresentationState.revealing;
+      });
+
+      // Intro first, transcript second. Populating the transcript before
+      // the card is dismissed would let a modal-presentation root node
+      // stack on top of it.
+      if (widget.showIntro) {
+        final intro = ScenarioIntros.forScenario(scenario.scenarioId);
+        if (intro != null && mounted) {
+          setState(() => _introVisible = true);
+          await showScenarioIntro(
+            context,
+            district: widget.district,
+            intro: intro,
+            dismissible: widget.isReplay,
+          );
+          if (!mounted) return scenario;
+          setState(() => _introVisible = false);
+        }
+      }
+
+      setState(() {
         if (!_isModalNode(scenario.node)) {
           _transcript.add(_TranscriptEntry.persona(
             scenario.node.message ?? '',
@@ -161,6 +206,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         }
         _trackLocation(scenario.node);
       });
+
       _revealNode(scenario.node);
       return scenario;
     });
@@ -633,6 +679,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             future: _scenarioFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
+                // The future intentionally stays unresolved while the
+                // intro card is up. Don't spin behind it.
+                if (_introVisible) return const SizedBox.shrink();
                 return Center(
                   child: CircularProgressIndicator(color: district.accent),
                 );
