@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
 
+/// Renders a Career "work_artifact" presentation — a form, record,
+/// upload, review notice or draft — as a document-like card, with the
+/// node's message as the body text.
+///
+/// Note on `data.actions`: scenario JSON may carry an `actions` array of
+/// short tags. It is deliberately NOT rendered. As pills it read as
+/// tappable UI sitting next to the real choice tiles, and on beats like
+/// `audit_reply` it announced the mechanic ("WHATEVER YOU ATTACH")
+/// before the player had discovered it. `status` already carries the
+/// document-state job in the header. Leave `actions` as authoring data.
 class WorkArtifactCard extends StatelessWidget {
   final DistrictTheme district;
   final Map<String, dynamic> data;
@@ -25,10 +35,6 @@ class WorkArtifactCard extends StatelessWidget {
     final fields = ((data['fields'] as List?) ?? const [])
         .whereType<Map>()
         .map((f) => Map<String, dynamic>.from(f))
-        .toList();
-    final actions = ((data['actions'] as List?) ?? const [])
-        .whereType<String>()
-        .where((a) => a.trim().isNotEmpty)
         .toList();
     final accent = _accentFor(variant, district);
 
@@ -74,17 +80,6 @@ class WorkArtifactCard extends StatelessWidget {
                 if (body.trim().isNotEmpty) ...[
                   const SizedBox(height: 14),
                   _ArtifactBody(text: body),
-                ],
-                if (actions.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final action in actions)
-                        _ActionPill(label: action, accent: accent),
-                    ],
-                  ),
                 ],
               ],
             ),
@@ -280,34 +275,6 @@ class _ArtifactBody extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
-      ),
-    );
-  }
-}
-
-class _ActionPill extends StatelessWidget {
-  final String label;
-  final Color accent;
-
-  const _ActionPill({required this.label, required this.accent});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 9,
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w700,
-          color: accent,
-        ),
       ),
     );
   }

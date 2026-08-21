@@ -3,10 +3,21 @@ import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
 import '../theme/mood_style.dart';
 
+/// Parsed form of a node's `presentation.data.visual` block.
+///
+/// [setting] and the icon/colour pair derived from it are what actually
+/// drive the rendered plate. [props] is deliberately NOT rendered — it's
+/// authoring vocabulary describing the concrete objects in the beat, kept
+/// so a future illustration/silhouette layer has something to work from.
+/// Rendering it as text turns a lookup table into UI copy, which is what
+/// it used to do. Don't put it back on screen.
 class SceneVisualStyle {
   final String setting;
   final String pressure;
+
+  /// Authored (or inferred) object anchors for this beat. Data only.
   final List<String> props;
+
   final IconData icon;
   final List<Color> colors;
 
@@ -85,6 +96,9 @@ IconData _iconFor(String setting) {
   }
 }
 
+/// Fallback object anchors for a setting when a node authors no `props`.
+/// Data only — see the note on [SceneVisualStyle.props]. These are the
+/// values that used to leak on screen as "CURSOR / TIMESTAMP / UPLOAD".
 List<String> _propsFor(String setting) {
   switch (setting) {
     case 'kitchen':
@@ -143,6 +157,14 @@ List<Color> _colorsFor(String setting, DistrictTheme district) {
   }
 }
 
+/// The setting "plate" — a gradient band carrying the room's identity via
+/// colour and a single oversized background glyph, plus a mood-tinted
+/// badge. Deliberately wordless: everything it communicates it
+/// communicates without text.
+///
+/// [district] is currently unused for rendering but kept on the
+/// constructor so callers ([SceneCard], [SceneModal]) don't need touching
+/// when the accent is wanted again.
 class SceneSettingPlate extends StatelessWidget {
   final SceneVisualStyle visual;
   final MoodStyle mood;
@@ -159,10 +181,15 @@ class SceneSettingPlate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(compact ? 14 : 22);
+
     return Container(
       height: compact ? 72 : 104,
+      // Clips the oversized background glyph to the plate's own corners.
+      // Without this the icon overflows the right edge of the card.
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(compact ? 14 : 22),
+        borderRadius: radius,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -199,26 +226,18 @@ class SceneSettingPlate extends StatelessWidget {
               ),
             ),
           ),
-          if (!compact && visual.props.isNotEmpty)
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 12,
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final prop in visual.props.take(3))
-                    _PropChip(label: prop, accent: district.accent),
-                ],
-              ),
-            ),
         ],
       ),
     );
   }
 }
 
+/// A single authored line naming the invisible tension of the beat.
+///
+/// Renders only when a node actually authors `visual.pressure`. It must
+/// never fall back to joining [SceneVisualStyle.props] — that produced
+/// machine-generated copy like "CURSOR / TIMESTAMP / UPLOAD" on every
+/// undecorated scene node.
 class ScenePressureLine extends StatelessWidget {
   final SceneVisualStyle visual;
   final Color accent;
@@ -231,18 +250,15 @@ class ScenePressureLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (visual.pressure.isEmpty && visual.props.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final text =
-        visual.pressure.isNotEmpty ? visual.pressure : visual.props.join(' / ');
+    if (visual.pressure.isEmpty) return const SizedBox.shrink();
+
     return Row(
       children: [
         Icon(Icons.circle, size: 7, color: accent.withValues(alpha: 0.72)),
         const SizedBox(width: 7),
         Expanded(
           child: Text(
-            text.toUpperCase(),
+            visual.pressure.toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -254,34 +270,6 @@ class ScenePressureLine extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PropChip extends StatelessWidget {
-  final String label;
-  final Color accent;
-
-  const _PropChip({required this.label, required this.accent});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontSize: 8.5,
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w700,
-          color: Color.lerp(Colors.white, accent, 0.25),
-        ),
-      ),
     );
   }
 }

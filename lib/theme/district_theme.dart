@@ -107,36 +107,10 @@ class Districts {
     anchorScenarioId: 'the_instruction',
   );
 
-  /// Money was cut from the MVP: it had no distinct antagonist mechanic and
-  /// its good scenarios already belong to other districts (the £650 fee in
-  /// The Prince is a money scenario living in Digital). Money is a substrate
-  /// that appears across districts, not a district.
-  ///
-  /// The fourth district, when one is earned, is Institutions - letting
-  /// agents, HR, debt collectors, claims handlers. The counterparty is
-  /// someone following a script whose job is to say no, which is a genuinely
-  /// new pressure type rather than a reskin. Kept here, unavailable, only if
-  /// you want the roadmap visible on the home screen; otherwise delete it
-  /// and drop it from [all].
-  static final institutions = DistrictTheme(
-    id: 'institutions',
-    name: 'Institutions District',
-    tagline: 'Unlocks once judgment earns it',
-    icon: Icons.account_balance_outlined,
-    accent: const Color(0xFF8A8A90),
-    backgroundGradient: const [
-      Color(0xFF141416),
-      Color(0xFF101012),
-      Color(0xFF0B0B0C)
-    ],
-    labelFont: () => GoogleFonts.spaceGrotesk(),
-  );
-
   static final all = <DistrictTheme>[
     neighborhood,
     digital,
     career,
-    institutions,
   ];
 
   /// Looks up a district by its string id (matches the "district" field

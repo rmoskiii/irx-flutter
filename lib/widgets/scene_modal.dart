@@ -13,6 +13,15 @@ import 'work_artifact_card.dart';
 /// mood, a large breathing portrait, and a glassmorphic dialogue panel
 /// with the response choices inside it. Same "choices live in the modal"
 /// contract as [CallModal] and [PaymentRequestModal].
+///
+/// Note: this modal deliberately does NOT render a [SceneSettingPlate].
+/// The base gradient below is already built from `visual.colors`, so the
+/// plate re-stated the same three colours inside a box on top of them —
+/// 122px of chrome carrying nothing the backdrop wasn't already carrying,
+/// pushing the dialogue panel to the fold. The setting still reads, via
+/// the whole-modal wash and the glyph on the location line. [SceneCard]
+/// keeps its compact plate, because inline against the dark app surface
+/// it's the only place the room exists.
 class SceneModal extends StatefulWidget {
   final DistrictTheme district;
   final Map<String, dynamic> data;
@@ -87,7 +96,9 @@ class _SceneModalState extends State<SceneModal> {
           child: Stack(
             children: [
               // Base - near-black so the aurora reads as light against
-              // dark, not washed out.
+              // dark, not washed out. This gradient is the setting: it's
+              // built from visual.colors, so a kitchen beat is warm brown
+              // edge to edge without needing a plate to say so.
               Container(
                 decoration: BoxDecoration(
                   color: Color.fromRGBO(
@@ -151,39 +162,50 @@ class _SceneModalState extends State<SceneModal> {
                 builder: (context, scale, child) =>
                     Transform.scale(scale: scale, child: child),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (location.isNotEmpty)
-                        Center(
-                          child: Text(
-                            location.toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: district.labelFont().copyWith(
-                                  fontSize: 11,
-                                  letterSpacing: 1.4,
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                ),
-                          ),
+                      // Location line, with the setting glyph beside it -
+                      // the only place the room is named now the plate is
+                      // gone.
+                      if (location.isNotEmpty) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              visual.icon,
+                              size: 13,
+                              color: Colors.white.withValues(alpha: 0.42),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                location.toUpperCase(),
+                                textAlign: TextAlign.center,
+                                style: district.labelFont().copyWith(
+                                      fontSize: 11,
+                                      letterSpacing: 1.4,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.5),
+                                    ),
+                              ),
+                            ),
+                          ],
                         ),
-                      const SizedBox(height: 20),
-                      SceneSettingPlate(
-                        visual: visual,
-                        mood: moodStyle,
-                        district: district,
-                      ),
-                      const SizedBox(height: 18),
+                        const SizedBox(height: 14),
+                      ],
                       Center(
                         child: SceneAvatar(
                           initial: name.isNotEmpty ? name[0] : '?',
                           mood: moodStyle,
                           accent: district.accent,
-                          size: 108,
+                          size: 84,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Center(
                         child: Column(
                           children: [
@@ -197,21 +219,26 @@ class _SceneModalState extends State<SceneModal> {
                                     color: Colors.white,
                                   ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              role,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    fontSize: 12,
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                  ),
-                            ),
+                            // `resolution` in The Instruction passes an
+                            // empty role; don't render a blank line for it.
+                            if (role.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                role,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontSize: 12,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.6),
+                                    ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 16),
                       if (artifact != null) ...[
                         WorkArtifactCard(
                           district: district,
@@ -248,13 +275,18 @@ class _SceneModalState extends State<SceneModal> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      ScenePressureLine(
-                        visual: visual,
-                        accent: moodStyle.primary,
-                      ),
+                      // Only reserve the gap when there's actually a
+                      // pressure line to sit in it - ScenePressureLine
+                      // collapses to nothing when the node authors none.
+                      if (visual.pressure.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        ScenePressureLine(
+                          visual: visual,
+                          accent: moodStyle.primary,
+                        ),
+                      ],
                       if (_visibleChoiceCount > 0) ...[
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         Text(
                           'HOW DO YOU RESPOND?',
                           style:
