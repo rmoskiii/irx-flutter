@@ -25,6 +25,7 @@ import '../widgets/sms_card.dart';
 import '../widgets/typing_indicator.dart';
 import '../widgets/work_artifact_card.dart';
 import 'outcome_screen.dart';
+import '../models/scene_render.dart';
 
 /// Reaction delay floors keyed by the string value in the scenario JSON.
 /// The actual pause also scales with the node's text length.
@@ -49,6 +50,7 @@ class _TranscriptEntry {
   final List<ThreadSegment>? thread;
   final bool showHeader;
   final ScenarioPresentation? presentation;
+  final SceneRender? render; 
   final StatDelta? scores;
   final Map<String, String>? reasons;
 
@@ -57,6 +59,7 @@ class _TranscriptEntry {
     this.showHeader = false,
     this.presentation,
     this.thread,
+    this.render,
   })  : kind = _EntryKind.persona,
         scores = null,
         reasons = null;
@@ -66,21 +69,24 @@ class _TranscriptEntry {
         thread = null,
         showHeader = false,
         presentation = null,
+        render = null,
         scores = null,
         reasons = null;
 
-  const _TranscriptEntry.feedback(this.scores, this.reasons)
+    const _TranscriptEntry.feedback(this.scores, this.reasons)
       : kind = _EntryKind.feedback,
         text = '',
         thread = null,
         showHeader = false,
-        presentation = null;
+        presentation = null,
+        render = null;
 
   const _TranscriptEntry.beat(this.text)
       : kind = _EntryKind.beat,
         thread = null,
         showHeader = false,
         presentation = null,
+        render = null,
         scores = null,
         reasons = null;
 }
@@ -202,6 +208,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             showHeader: true,
             presentation: scenario.node.presentation,
             thread: scenario.node.thread,
+            render: scenario.node.render,
           ));
         }
         _trackLocation(scenario.node);
@@ -324,6 +331,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         node.message ?? '',
         presentation: node.presentation,
         thread: node.thread,
+        render: null,
       ));
     });
     _scrollToBottom();
@@ -383,6 +391,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             data: presentation.data,
             message: node.message ?? '',
             choices: node.choices,
+            render: node.render,
           );
           if (!mounted || selectedScene == null) return;
           await _commitModalChoice(node, selectedScene);
@@ -539,6 +548,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             nextNode.message ?? '',
             presentation: nextNode.presentation,
             thread: nextNode.thread,
+            render: nextNode.render,
           ));
         }
       });
@@ -635,6 +645,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
         location: data['location'] as String? ?? '',
         message: entry.text,
         data: data,
+        render: entry.render,
       );
     }
 

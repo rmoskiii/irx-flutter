@@ -3,6 +3,7 @@
 /// dependency-light and easy to read for a small MVP.
 library;
 
+import 'scene_render.dart';
 class Persona {
   final String name;
   final String role;
@@ -108,7 +109,17 @@ class ScenarioNode {
   final List<ScenarioChoice> choices;
   final String? reactionDelay;
   final ScenarioInterstitial? interstitial;
-
+ 
+  /// The composed scene for this node, or null when it has none — `messages`
+  /// nodes, and any node the visual contract declined to compose. Both are
+  /// normal states, so every consumer must treat null as "no picture" rather
+  /// than as an error.
+  ///
+  /// Resolved entirely server-side. The variant that chose this artwork is the
+  /// same one that chose the prose, which is why the picture can never
+  /// disagree with the text.
+  final SceneRender? render;
+ 
   const ScenarioNode({
     required this.nodeId,
     required this.choices,
@@ -117,8 +128,9 @@ class ScenarioNode {
     this.presentation,
     this.reactionDelay,
     this.interstitial,
+    this.render,
   });
-
+ 
   factory ScenarioNode.fromJson(Map<String, dynamic> json) {
     return ScenarioNode(
       nodeId: json['nodeId'] as String,
@@ -135,6 +147,7 @@ class ScenarioNode {
           ? ScenarioPresentation.fromJson(
               json['presentation'] as Map<String, dynamic>)
           : null,
+      render: SceneRender.fromJson(json['render'] as Map<String, dynamic>?),
       choices: (json['choices'] as List)
           .map((c) => ScenarioChoice.fromJson(c as Map<String, dynamic>))
           .toList(),

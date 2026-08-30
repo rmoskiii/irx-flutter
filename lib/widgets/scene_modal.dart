@@ -7,6 +7,8 @@ import '../utils/reading_time.dart';
 import 'scene_avatar.dart';
 import 'scene_visuals.dart';
 import 'work_artifact_card.dart';
+import '../models/scene_render.dart';
+import 'scene_view.dart';
 
 /// The full cinematic treatment for a "scene" presentation flagged
 /// `modal: true` - a soft-focus aurora backdrop tinted to the character's
@@ -27,15 +29,20 @@ class SceneModal extends StatefulWidget {
   final Map<String, dynamic> data;
   final String message;
   final List<ScenarioChoice> choices;
-
+ 
+  /// Composed scene for this node, or null. Null keeps the pre-artwork
+  /// treatment exactly as it was.
+  final SceneRender? render;
+ 
   const SceneModal({
     super.key,
     required this.district,
     required this.data,
     required this.message,
     required this.choices,
+    this.render,
   });
-
+ 
   @override
   State<SceneModal> createState() => _SceneModalState();
 }
@@ -197,15 +204,29 @@ class _SceneModalState extends State<SceneModal> {
                         ),
                         const SizedBox(height: 14),
                       ],
-                      Center(
-                        child: SceneAvatar(
-                          initial: name.isNotEmpty ? name[0] : '?',
-                          mood: moodStyle,
-                          accent: district.accent,
-                          size: 84,
+                      if (widget.render != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: SceneView(
+                            svg: widget.render!.svg,
+                            cacheKey: widget.render!.cacheKey,
+                            semanticLabel: name.isEmpty
+                                ? location
+                                : '$name, $location',
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 14),
+                      ] else ...[
+                        Center(
+                          child: SceneAvatar(
+                            initial: name.isNotEmpty ? name[0] : '?',
+                            mood: moodStyle,
+                            accent: district.accent,
+                            size: 84,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       Center(
                         child: Column(
                           children: [
@@ -418,12 +439,18 @@ Future<ScenarioChoice?> showSceneModal(
   required Map<String, dynamic> data,
   required String message,
   required List<ScenarioChoice> choices,
+  SceneRender? render,
 }) {
   return showDialog<ScenarioChoice>(
     context: context,
     barrierDismissible: false,
     barrierColor: Colors.black.withValues(alpha: 0.8),
     builder: (_) => SceneModal(
-        district: district, data: data, message: message, choices: choices),
+      district: district,
+      data: data,
+      message: message,
+      choices: choices,
+      render: render,
+    ),
   );
 }
