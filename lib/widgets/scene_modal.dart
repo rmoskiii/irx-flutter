@@ -1,20 +1,20 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/scenario.dart';
+import '../models/scene_render.dart';
 import '../theme/district_theme.dart';
 import '../theme/mood_style.dart';
 import '../utils/reading_time.dart';
 import 'scene_avatar.dart';
+import 'scene_view.dart';
 import 'scene_visuals.dart';
 import 'work_artifact_card.dart';
-import '../models/scene_render.dart';
-import 'scene_view.dart';
 
 /// The full cinematic treatment for a "scene" presentation flagged
 /// `modal: true` - a soft-focus aurora backdrop tinted to the character's
-/// mood, a large breathing portrait, and a glassmorphic dialogue panel
-/// with the response choices inside it. Same "choices live in the modal"
-/// contract as [CallModal] and [PaymentRequestModal].
+/// mood, the composed scene, and a glassmorphic dialogue panel with the
+/// response choices inside it. Same "choices live in the modal" contract as
+/// [CallModal] and [PaymentRequestModal].
 ///
 /// Note: this modal deliberately does NOT render a [SceneSettingPlate].
 /// The base gradient below is already built from `visual.colors`, so the
@@ -24,16 +24,22 @@ import 'scene_view.dart';
 /// the whole-modal wash and the glyph on the location line. [SceneCard]
 /// keeps its compact plate, because inline against the dark app surface
 /// it's the only place the room exists.
+///
+/// The same reasoning now applies twice over to the identity block. With
+/// artwork present, the avatar AND the name/role lines are both restating
+/// what the picture already says, and the 16:9 frame costs ~230px — enough
+/// to push the choices below the fold on a 6.1" phone. So both collapse
+/// when [render] is non-null and return when it isn't.
 class SceneModal extends StatefulWidget {
   final DistrictTheme district;
   final Map<String, dynamic> data;
   final String message;
   final List<ScenarioChoice> choices;
- 
+
   /// Composed scene for this node, or null. Null keeps the pre-artwork
   /// treatment exactly as it was.
   final SceneRender? render;
- 
+
   const SceneModal({
     super.key,
     required this.district,
@@ -42,7 +48,7 @@ class SceneModal extends StatefulWidget {
     required this.choices,
     this.render,
   });
- 
+
   @override
   State<SceneModal> createState() => _SceneModalState();
 }
@@ -92,6 +98,8 @@ class _SceneModalState extends State<SceneModal> {
     final visual = SceneVisualStyle.fromData(district, widget.data);
     final artifact = widget.data['artifact'] as Map<String, dynamic>?;
     final maxHeight = MediaQuery.of(context).size.height * 0.9;
+    final scene = widget.render;
+    final hasArtwork = scene != null;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -175,8 +183,9 @@ class _SceneModalState extends State<SceneModal> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Location line, with the setting glyph beside it -
-                      // the only place the room is named now the plate is
-                      // gone.
+                      // the only place the room is NAMED. The artwork shows
+                      // the room; it doesn't tell you it's the coffee shop
+                      // three weeks later. Worth its 25px either way.
                       if (location.isNotEmpty) ...[
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -204,19 +213,21 @@ class _SceneModalState extends State<SceneModal> {
                         ),
                         const SizedBox(height: 14),
                       ],
-                      if (widget.render != null) ...[
+
+                      if (hasArtwork) ...[
                         ClipRRect(
                           borderRadius: BorderRadius.circular(14),
                           child: SceneView(
-                            svg: widget.render!.svg,
-                            cacheKey: widget.render!.cacheKey,
-                            semanticLabel: name.isEmpty
-                                ? location
-                                : '$name, $location',
+                            svg: scene.svg,
+                            cacheKey: scene.cacheKey,
+                            semanticLabel:
+                                name.isEmpty ? location : '$name, $location',
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                       ] else ...[
+                        // No artwork: the avatar and the name block are the
+                        // only things identifying the speaker, so both stay.
                         Center(
                           child: SceneAvatar(
                             initial: name.isNotEmpty ? name[0] : '?',
@@ -226,40 +237,41 @@ class _SceneModalState extends State<SceneModal> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                      ],
-                      Center(
-                        child: Column(
-                          children: [
-                            Text(
-                              name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                  ),
-                            ),
-                            // `resolution` in The Instruction passes an
-                            // empty role; don't render a blank line for it.
-                            if (role.isNotEmpty) ...[
-                              const SizedBox(height: 2),
+                        Center(
+                          child: Column(
+                            children: [
                               Text(
-                                role,
+                                name,
                                 style: Theme.of(context)
                                     .textTheme
-                                    .bodyMedium
+                                    .titleLarge
                                     ?.copyWith(
-                                      fontSize: 12,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 20,
+                                      color: Colors.white,
                                     ),
                               ),
+                              // `resolution` in The Instruction passes an
+                              // empty role; don't render a blank line for it.
+                              if (role.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  role,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        fontSize: 12,
+                                        color: Colors.white
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
+
                       if (artifact != null) ...[
                         WorkArtifactCard(
                           district: district,
@@ -269,33 +281,39 @@ class _SceneModalState extends State<SceneModal> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      // Glassmorphic dialogue panel.
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                          child: Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.14)),
-                            ),
-                            child: Text(
-                              widget.message,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    height: 1.55,
-                                    color: Colors.white.withValues(alpha: 0.95),
-                                    fontSize: 15,
-                                  ),
+                      // Glassmorphic dialogue panel. Collapses entirely when
+                      // the node put its dialogue in the artwork and had no
+                      // narration left over — an empty glass box under a
+                      // picture is just a gap with a border.
+                      if (widget.message.trim().isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                            child: Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.14)),
+                              ),
+                              child: Text(
+                                widget.message,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(
+                                      height: 1.55,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.95),
+                                      fontSize: 15,
+                                    ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       // Only reserve the gap when there's actually a
                       // pressure line to sit in it - ScenePressureLine
                       // collapses to nothing when the node authors none.
