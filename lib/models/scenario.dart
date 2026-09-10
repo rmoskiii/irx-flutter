@@ -163,6 +163,17 @@ class Scenario {
   final String district;
   final int difficulty;
   final String revealTiming;
+
+  /// Whether the scenario's score dimensions reach the player at all.
+  ///
+  /// Distinct from [revealTiming], which governs WHEN per-choice feedback
+  /// appears during play. This governs WHETHER savvy/integrity/streetSmarts
+  /// are surfaced in scoring UI and applied to the global AppState pool.
+  /// The Streets ends on trajectory and authored evidence, not on a number
+  /// labelled INTEGRITY. Defaults true, so every scenario that predates the
+  /// field behaves exactly as before.
+  final bool playerVisible;
+
   final Persona persona;
   final Map<String, dynamic> state;
   final ScenarioNode node;
@@ -173,6 +184,7 @@ class Scenario {
     required this.district,
     required this.difficulty,
     required this.revealTiming,
+    this.playerVisible = true,
     required this.persona,
     required this.state,
     required this.node,
@@ -187,6 +199,9 @@ class Scenario {
       revealTiming: json['revealTiming'] as String? ??
           (json['scoring'] as Map?)?['revealTiming'] as String? ??
           'immediate',
+      playerVisible: json['playerVisible'] as bool? ??
+          (json['scoring'] as Map?)?['playerVisible'] as bool? ??
+          true,
       persona: Persona.fromJson(json['persona'] as Map<String, dynamic>),
       state: Map<String, dynamic>.from((json['state'] as Map?) ?? const {}),
       node: ScenarioNode.fromJson(json['node'] as Map<String, dynamic>),

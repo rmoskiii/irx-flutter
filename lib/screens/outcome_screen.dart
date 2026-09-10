@@ -48,6 +48,13 @@ class OutcomeScreen extends StatefulWidget {
 
   final List<TurnBreakdown> breakdown;
 
+  /// Whether this scenario's score dimensions may be shown to the player.
+  /// Declared by the scenario; defaults true so every scenario that predates
+  /// the field renders exactly as before. When false the ledger is suppressed
+  /// — the ring and totals are already suppressed independently by
+  /// [isReflectionMode], which is a different and older condition.
+  final bool playerVisible;
+
   const OutcomeScreen({
     super.key,
     required this.district,
@@ -60,6 +67,7 @@ class OutcomeScreen extends StatefulWidget {
     this.aftermath,
     this.finalMessage,
     required this.breakdown,
+    this.playerVisible = true,
   });
 
   bool get isReflectionMode =>
@@ -82,6 +90,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   StatDelta get totalScores => widget.totalScores;
   List<TurnBreakdown> get breakdown => widget.breakdown;
   bool get _reflectionMode => widget.isReflectionMode;
+  bool get _playerVisible => widget.playerVisible;
 
   /// Empty-valued slots are dropped here rather than rendered as a bare
   /// header, so a scenario whose variants didn't all match doesn't leave a
@@ -281,7 +290,10 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   ),
                 ),
 
-                if (_at(_stBreakdown) && _revealedTurns > 0) ...[
+                // Ledger suppressed when the scenario declares its scores
+                // are not player-facing. The stage still advances and holds so
+                // the indices below it don't shift.
+                if (_playerVisible && _at(_stBreakdown) && _revealedTurns > 0) ...[
                   const SizedBox(height: 32),
                   Align(
                     alignment: Alignment.centerLeft,

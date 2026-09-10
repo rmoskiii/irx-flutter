@@ -453,7 +453,15 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       // next turn. The client never inspects this map.
       _scenarioState = result.state ?? _scenarioState;
 
-      context.read<AppState>().applyResult(result.scores);
+      // Declared by the scenario, not inferred from its district. The Streets
+      // keeps real score values for compatibility and for the results log, and
+      // contributes none of them to the player-facing pool the home screen
+      // reads. _runningTotal and _breakdown are still accumulated: the outcome
+      // screen decides what it renders, and the run's own totals are not the
+      // cross-scenario pool.
+      if (_scenario?.playerVisible ?? true) {
+        context.read<AppState>().applyResult(result.scores);
+      }
       _runningTotal = _runningTotal + result.scores;
       _breakdown.add(TurnBreakdown(
         choiceLabel: choice.label,
@@ -512,6 +520,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
               aftermath: result.aftermath,
               finalMessage: result.finalMessage,
               breakdown: List.unmodifiable(_breakdown),
+              playerVisible: _scenario!.playerVisible,
             ),
           ),
         );
