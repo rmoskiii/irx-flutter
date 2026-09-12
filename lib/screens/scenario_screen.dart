@@ -12,6 +12,7 @@ import '../widgets/choice_tile.dart';
 import '../widgets/document_modal.dart';
 import '../widgets/email_card.dart';
 import '../widgets/interstitial_overlay.dart';
+import '../state/run_store.dart';
 import '../widgets/messages_card.dart';
 import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
@@ -145,6 +146,24 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   /// on the backend can't desync from the renderer.
   Map<String, dynamic> _scenarioState = const {};
 
+  /// The day the current node belongs to. Null for scenarios that aren't
+  /// day-structured. Compared against the day of each incoming node: a change
+  /// is a day boundary, and a day boundary is the only moment a run is saved.
+  int? _currentDay;
+
+  /// Run creation time, carried through every snapshot so run age survives
+  /// a resume. Provenance only — it does not gate anything.
+  DateTime _startedAt = DateTime.now();
+
+  /// True when this session opened from a saved run rather than the root.
+  /// The transcript starts empty either way — day openings are authored as
+  /// cold opens precisely so a resume needs no recap.
+  bool _resumed = false;
+
+  /// Set when a saved run existed but could not be used. Null in the ordinary
+  /// case of there being no run at all.
+  RunDiscardReason? _discardedRun;
+
   _NodePresentationState _presentationState = _NodePresentationState.revealing;
   bool _showTyping = false;
   String? _selectedChoiceId;
@@ -168,17 +187,69 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   bool get _choiceInputLocked =>
       _presentationState != _NodePresentationState.waitingForChoice;
 
+  /// Opens the scenario, resuming a saved run if one is still valid.
+  ///
+  /// `/today` is always called first, because it is the authority on the
+  /// current `contentRevision` — a snapshot cannot be trusted to describe the
+  /// content it was written against. Only then is the stored run consulted.
+  ///
+  /// A replay explicitly discards any saved run: choosing to start again is
+  /// the one place where losing a week is what the player asked for.
+  Future<Scenario> _loadOrResume() async {
+    final fresh =
+        await _api.fetchTodayScenario(scenarioId: widget.scenarioIdOverride);
+
+    if (widget.isReplay) {
+      await RunStore.clear(fresh.scenarioId);
+      return fresh;
+    }
+
+    RunReadResult stored;
+    try {
+      stored = await RunStore.read(fresh.scenarioId,
+          currentContentRevision: fresh.contentRevision);
+    } catch (_) {
+      return fresh;
+    }
+
+    // A discarded run is not an error path the player should meet silently,
+    // but it is also not a reason to fail to open: they start the week again.
+    // _discardedRun lets the UI say something true about why.
+    _discardedRun = stored.discarded;
+    if (!stored.hasRun) return fresh;
+
+    final snapshot = stored.snapshot!;
+    try {
+      final resumed = await _api.fetchNode(
+        scenarioId: snapshot.scenarioId,
+        nodeId: snapshot.nodeId,
+        state: snapshot.state,
+      );
+      _runningTotal = snapshot.runningTotal;
+      _breakdown
+        ..clear()
+        ..addAll(snapshot.breakdown);
+      _startedAt = snapshot.startedAt;
+      _resumed = true;
+      return resumed;
+    } catch (_) {
+      // Server unreachable or the node no longer exists. Keep the snapshot —
+      // the next launch may succeed — and open the scenario from the top
+      // rather than refusing to open at all.
+      return fresh;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _scenarioFuture = _api
-        .fetchTodayScenario(scenarioId: widget.scenarioIdOverride)
-        .then((scenario) async {
+    _scenarioFuture = _loadOrResume().then((scenario) async {
       if (!mounted) return scenario;
 
       setState(() {
         _scenario = scenario;
         _currentNodeId = scenario.node.nodeId;
+        _currentDay = scenario.node.day;
         _scenarioState = scenario.state;
         _presentationState = _NodePresentationState.revealing;
       });
@@ -186,7 +257,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       // Intro first, transcript second. Populating the transcript before
       // the card is dismissed would let a modal-presentation root node
       // stack on top of it.
-      if (widget.showIntro) {
+      // Not on a resume: the intro introduces a week that is already
+      // four days old by then.
+      if (widget.showIntro && !_resumed) {
         final intro = ScenarioIntros.forScenario(scenario.scenarioId);
         if (intro != null && mounted) {
           setState(() => _introVisible = true);
@@ -415,6 +488,32 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     await _revealChoices(node.choices, revealToken);
   }
 
+  /// Writes the run at a day boundary. Stores the NEXT day's opening node, so
+  /// a resume opens on the new day rather than replaying the close of the old
+  /// one. Best-effort: a failed write costs the player a replayed day, so it
+  /// must never take down the turn that succeeded.
+  Future<void> _persistDayBoundary(String nextNodeId, int? day) async {
+    final scenario = _scenario;
+    if (scenario == null) return;
+
+    try {
+      await RunStore.write(RunSnapshot(
+        snapshotVersion: RunSnapshot.currentVersion,
+        contentRevision: scenario.contentRevision,
+        scenarioId: scenario.scenarioId,
+        nodeId: nextNodeId,
+        day: day,
+        state: _scenarioState,
+        runningTotal: _runningTotal,
+        breakdown: List.unmodifiable(_breakdown),
+        startedAt: _startedAt,
+        updatedAt: DateTime.now(),
+      ));
+    } catch (_) {
+      // Persistence is best-effort, not load-bearing.
+    }
+  }
+
   Future<void> _selectChoice(ScenarioChoice choice,
       {bool fromModal = false}) async {
     if (_scenario == null ||
@@ -452,6 +551,25 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       // Opaque courier — whatever the backend hands back is what we send
       // next turn. The client never inspects this map.
       _scenarioState = result.state ?? _scenarioState;
+
+      // A day boundary is a non-terminal node whose day differs from the one
+      // we were on. Persist BEFORE any interstitial or UI transition runs, so
+      // the window in which a kill loses the boundary is milliseconds rather
+      // than the length of an animation.
+      //
+      // Deliberately loss-tolerant in one direction only: a player may lose a
+      // day and replay it, never gain one.
+      final nextDay = result.node?.day;
+      final crossedDay = !result.terminal &&
+          result.node != null &&
+          nextDay != null &&
+          nextDay != _currentDay;
+
+      if (crossedDay) {
+        _currentDay = nextDay;
+        await _persistDayBoundary(result.node!.nodeId, nextDay);
+        if (!mounted) return;
+      }
 
       // Declared by the scenario, not inferred from its district. The Streets
       // keeps real score values for compatibility and for the results log, and
@@ -491,6 +609,12 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       }
 
       if (result.terminal) {
+        // The week is over: the run is no longer resumable. Cleared here
+        // rather than on the outcome screen so a kill during the ending
+        // cannot leave a completed run looking resumable.
+        await RunStore.clear(_scenario!.scenarioId);
+        if (!mounted) return;
+
         // Landing beat — a final cinematic moment between the last
         // decision and the outcome screen. The scene breathes before the
         // numbers arrive. Only shows if the terminal choice carries one.
