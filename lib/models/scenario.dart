@@ -103,6 +103,15 @@ class ScenarioInterstitial {
 /// is null for an ordinary chat beat.
 class ScenarioNode {
   final String nodeId;
+
+  /// Which authored day this node belongs to, 1-7 in The Streets.
+  ///
+  /// The client does not use this to sequence anything — the server decides
+  /// what comes next. It exists so a turn can detect that the day CHANGED,
+  /// which is the only moment a run is persisted. Null for scenarios that
+  /// aren't day-structured, and null is not an error.
+  final int? day;
+
   final String? message;
   final List<ThreadSegment>? thread;
   final ScenarioPresentation? presentation;
@@ -123,6 +132,7 @@ class ScenarioNode {
   const ScenarioNode({
     required this.nodeId,
     required this.choices,
+    this.day,
     this.message,
     this.thread,
     this.presentation,
@@ -134,6 +144,7 @@ class ScenarioNode {
   factory ScenarioNode.fromJson(Map<String, dynamic> json) {
     return ScenarioNode(
       nodeId: json['nodeId'] as String,
+      day: json['day'] as int?,
       message: json['message'] as String?,
       thread: (json['thread'] as List?)
           ?.map((s) => ThreadSegment.fromJson(s as Map<String, dynamic>))
@@ -164,6 +175,14 @@ class Scenario {
   final int difficulty;
   final String revealTiming;
 
+  /// Version of the AUTHORED CONTENT, not of the save format.
+  ///
+  /// Stored with a run and compared on resume. If the scenario has been
+  /// re-authored since, saved state may reference keys or values that no
+  /// longer exist — and because `matchesAll` returns false on a missing key,
+  /// every condition touching them would silently stop firing. Absent means 0.
+  final int contentRevision;
+
   /// Whether the scenario's score dimensions reach the player at all.
   ///
   /// Distinct from [revealTiming], which governs WHEN per-choice feedback
@@ -184,6 +203,7 @@ class Scenario {
     required this.district,
     required this.difficulty,
     required this.revealTiming,
+    this.contentRevision = 0,
     this.playerVisible = true,
     required this.persona,
     required this.state,
@@ -199,6 +219,7 @@ class Scenario {
       revealTiming: json['revealTiming'] as String? ??
           (json['scoring'] as Map?)?['revealTiming'] as String? ??
           'immediate',
+      contentRevision: json['contentRevision'] as int? ?? 0,
       playerVisible: json['playerVisible'] as bool? ??
           (json['scoring'] as Map?)?['playerVisible'] as bool? ??
           true,
@@ -331,6 +352,22 @@ class TurnBreakdown {
     required this.scores,
     required this.reasons,
   });
+
+  factory TurnBreakdown.fromJson(Map<String, dynamic> json) {
+    return TurnBreakdown(
+      choiceLabel: json['choiceLabel'] as String? ?? '',
+      scores: StatDelta.fromJson(json['scores'] as Map<String, dynamic>),
+      reasons: (json['reasons'] as Map?)
+              ?.map((k, v) => MapEntry(k as String, v as String)) ??
+          const {},
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'choiceLabel': choiceLabel,
+        'scores': scores.toJson(),
+        'reasons': reasons,
+      };
 }
 
 /// Summary of a scenario, as returned by GET /api/scenarios/list. Powers

@@ -35,6 +35,33 @@ class ApiService {
     return Scenario.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  /// Resume. Re-resolves a node against stored raw state.
+  ///
+  /// The stored node is a pointer, not a rendering: the server recomputes
+  /// derived state and re-applies `requires` filtering before answering, so a
+  /// run written days ago resolves against the content live right now.
+  Future<Scenario> fetchNode({
+    required String scenarioId,
+    required String nodeId,
+    required Map<String, dynamic> state,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/scenarios/node');
+    final response = await http.post(
+      uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'scenarioId': scenarioId,
+        'nodeId': nodeId,
+        'state': state,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw ApiException('Could not resume (${response.statusCode}).');
+    }
+    return Scenario.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   /// Dev/testing convenience: every scenario currently on disk.
   Future<List<ScenarioSummary>> fetchScenarioList() async {
     final uri = Uri.parse('$baseUrl/api/scenarios/list');
