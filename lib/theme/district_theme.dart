@@ -107,7 +107,35 @@ class Districts {
     anchorScenarioId: 'the_instruction',
   );
 
+  /// The Streets is the estate at night: the slate of scene.block's concrete
+  /// under sodium light, with the wax-print red the cast wears as the one warm
+  /// signal. Deliberately not Neighbourhood's amber - that is a lit room, and
+  /// The Streets spends most of its week outside one.
+  ///
+  /// The accent is --irx-wax-red lifted until it reads on the dark gradient
+  /// (the token itself is ~3:1 there). Oswald for the chrome: signage, not a
+  /// form and not a novel.
+  ///
+  /// Without this entry `byId('streets')` fell back to Digital, so the
+  /// scenario opened in Digital's teal and monospace. SPEC U06 §7 item 4.
+  static final streets = DistrictTheme(
+    id: 'streets',
+    name: 'The Streets',
+    tagline: 'Seven days on the estate. Nothing resets overnight.',
+    icon: Icons.apartment_outlined,
+    accent: const Color(0xFFE36A4A),
+    backgroundGradient: const [
+      Color(0xFF1A2029),
+      Color(0xFF141920),
+      Color(0xFF0B0E13)
+    ],
+    labelFont: () => GoogleFonts.oswald(fontWeight: FontWeight.w500),
+    available: true,
+    anchorScenarioId: 'the_streets',
+  );
+
   static final all = <DistrictTheme>[
+    streets,
     neighborhood,
     digital,
     career,
