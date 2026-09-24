@@ -70,6 +70,28 @@ class ScenarioIntros {
         'Your score is hidden until the end.',
       ],
     ),
+    // Situation only: the week and who is in it, never what is being
+    // weighed. No "score hidden" rule, because The Streets has none to hide
+    // (scoring.playerVisible is false - the week ends on where it went).
+    // Shown on a fresh week only; a resume skips it (scenario_screen).
+    'the_streets': ScenarioIntro(
+      eyebrow: 'THE STREETS',
+      title: 'The Streets',
+      situation:
+          "You're nineteen. You live with your mum on an estate in London, "
+          "and money at home is tight: she works shifts and does sums in her "
+          "head when she thinks you're not looking.\n\n"
+          'This week, the people who have always had your back each need '
+          'something from you.',
+      youAre: 'Nineteen, and not in a rush to be anything yet.',
+      duration: '~30 minutes · 3–5 a day',
+      rules: [
+        'This plays out over seven days. It saves at the end of each day, '
+            'so you can stop and come back(or binge play).',
+        "There's no right answer. Everything costs something.",
+        "There's no score here. The week ends where your choices take it.",
+      ],
+    ),
   };
 
   /// Null when no intro has been authored for [scenarioId] — callers skip

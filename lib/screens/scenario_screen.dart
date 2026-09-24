@@ -14,6 +14,7 @@ import '../widgets/email_card.dart';
 import '../widgets/interstitial_overlay.dart';
 import '../state/run_store.dart';
 import '../widgets/messages_card.dart';
+import '../widgets/montage_card.dart';
 import '../widgets/payment_request_modal.dart';
 import '../widgets/persona_bubble.dart';
 import '../widgets/player_bubble.dart';
@@ -27,6 +28,7 @@ import '../widgets/typing_indicator.dart';
 import '../widgets/work_artifact_card.dart';
 import 'outcome_screen.dart';
 import '../models/scene_render.dart';
+import '../widgets/shell/cinematic_shell.dart';
 
 /// Reaction delay floors keyed by the string value in the scenario JSON.
 /// The actual pause also scales with the node's text length.
@@ -138,6 +140,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   final List<String> _visitedLocations = [];
   List<ScenarioChoice> _currentChoices = [];
   String _currentNodeId = '';
+  ScenarioNode? _currentNode;
   StatDelta _runningTotal = const StatDelta();
 
   /// Opaque scenario state — initialised by the backend from stateSchema,
@@ -316,7 +319,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
   Duration _choiceRevealDelayFor(ScenarioNode node) {
     final revealDuration = _inlineRevealDurationFor(node);
-    if (!_isNeighborhood) return revealDuration;
+    if (!_isNeighborhood && !widget.district.usesCinematicShell) {
+      return revealDuration;
+    }
     if (node.thread != null) {
       return readingHoldForThread(
         node.thread!,
@@ -429,6 +434,40 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       _currentChoices = [];
       _selectedChoiceId = null;
     });
+      Widget _buildShell(BuildContext context, DistrictTheme district) {
+    return Scaffold(
+      backgroundColor: district.backgroundGradient.last,
+      body: FutureBuilder<Scenario>(
+        future: _scenarioFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            if (_introVisible) return const SizedBox.shrink();
+            return Center(
+              child: CircularProgressIndicator(color: district.accent),
+            );
+          }
+          if (snapshot.hasError) {
+            return SafeArea(
+              child: _ErrorState(district: district, error: '${snapshot.error}'),
+            );
+          }
+
+          return CinematicShell(
+            district: district,
+            node: _currentNode,
+            choices: _currentChoices,
+            selectedChoiceId: _selectedChoiceId,
+            locked: _choiceInputLocked,
+            busy: _showTyping ||
+                _presentationState == _NodePresentationState.submitting ||
+                _presentationState == _NodePresentationState.transitioning,
+            onChoice: _selectChoice,
+            onExit: () => Navigator.of(context).pop(),
+          );
+        },
+      ),
+    );
+  }
 
     if (presentation != null && presentation.modal) {
       switch (presentation.type) {
@@ -767,6 +806,17 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       );
     }
 
+    // Compressed time. Must come before the generic fallback: without it a
+    // montage node reached PersonaBubble and its composed panels were dropped.
+    if (presentation != null && presentation.type == 'montage') {
+      return MontageCard(
+        district: widget.district,
+        location: presentation.data['location'] as String? ?? '',
+        message: entry.text,
+        render: entry.render,
+      );
+    }
+
     if (presentation != null && presentation.type == 'scene') {
       final data = presentation.data;
       final character = data['character'] as Map<String, dynamic>? ?? {};
@@ -808,6 +858,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   @override
   Widget build(BuildContext context) {
     final district = widget.district;
+    if (district.usesCinematicShell) return _buildShell(context, district);
 
     return Scaffold(
       body: DecoratedBox(

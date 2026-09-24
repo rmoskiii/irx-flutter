@@ -32,6 +32,11 @@ class DistrictTheme {
   /// backend's single default scenario regardless of which district was
   /// actually tapped.
   final String? anchorScenarioId;
+  
+  /// Whether this district plays in the full-screen cinematic shell — scene
+  /// filling the phone, prose on a translucent panel, choices floating on the
+  /// artwork — instead of the scrolling transcript.
+  final bool usesCinematicShell;
 
   const DistrictTheme({
     required this.id,
@@ -44,6 +49,7 @@ class DistrictTheme {
     this.available = false,
     this.imagePath,
     this.anchorScenarioId,
+    this.usesCinematicShell = false,
   });
 }
 
@@ -132,6 +138,7 @@ class Districts {
     labelFont: () => GoogleFonts.oswald(fontWeight: FontWeight.w500),
     available: true,
     anchorScenarioId: 'the_streets',
+    usesCinematicShell: true,
   );
 
   static final all = <DistrictTheme>[
