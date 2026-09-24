@@ -433,41 +433,8 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       _presentationState = _NodePresentationState.revealing;
       _currentChoices = [];
       _selectedChoiceId = null;
+      _currentNode = node;
     });
-      Widget _buildShell(BuildContext context, DistrictTheme district) {
-    return Scaffold(
-      backgroundColor: district.backgroundGradient.last,
-      body: FutureBuilder<Scenario>(
-        future: _scenarioFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            if (_introVisible) return const SizedBox.shrink();
-            return Center(
-              child: CircularProgressIndicator(color: district.accent),
-            );
-          }
-          if (snapshot.hasError) {
-            return SafeArea(
-              child: _ErrorState(district: district, error: '${snapshot.error}'),
-            );
-          }
-
-          return CinematicShell(
-            district: district,
-            node: _currentNode,
-            choices: _currentChoices,
-            selectedChoiceId: _selectedChoiceId,
-            locked: _choiceInputLocked,
-            busy: _showTyping ||
-                _presentationState == _NodePresentationState.submitting ||
-                _presentationState == _NodePresentationState.transitioning,
-            onChoice: _selectChoice,
-            onExit: () => Navigator.of(context).pop(),
-          );
-        },
-      ),
-    );
-  }
 
     if (presentation != null && presentation.modal) {
       switch (presentation.type) {
@@ -855,9 +822,52 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
     );
   }
 
+  /// The full-screen presentation, for districts that declare it. Deliberately
+  /// a sibling of the transcript build rather than a branch inside it: the two
+  /// share every piece of turn machinery above this line and no layout at all
+  /// below it, and keeping them apart means moving a district onto the shell
+  /// cannot disturb the districts still on the transcript.
+  Widget _buildShell(BuildContext context, DistrictTheme district) {
+    return Scaffold(
+      backgroundColor: district.backgroundGradient.last,
+      body: FutureBuilder<Scenario>(
+        future: _scenarioFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            // as in the transcript: the future stays unresolved behind the
+            // intro card on purpose, so don't spin underneath it
+            if (_introVisible) return const SizedBox.shrink();
+            return Center(
+              child: CircularProgressIndicator(color: district.accent),
+            );
+          }
+          if (snapshot.hasError) {
+            return SafeArea(
+              child: _ErrorState(district: district, error: '${snapshot.error}'),
+            );
+          }
+
+          return CinematicShell(
+            district: district,
+            node: _currentNode,
+            choices: _currentChoices,
+            selectedChoiceId: _selectedChoiceId,
+            locked: _choiceInputLocked,
+            busy: _showTyping ||
+                _presentationState == _NodePresentationState.submitting ||
+                _presentationState == _NodePresentationState.transitioning,
+            onChoice: _selectChoice,
+            onExit: () => Navigator.of(context).pop(),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final district = widget.district;
+
     if (district.usesCinematicShell) return _buildShell(context, district);
 
     return Scaffold(
