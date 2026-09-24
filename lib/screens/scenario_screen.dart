@@ -436,7 +436,18 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       _currentNode = node;
     });
 
-    if (presentation != null && presentation.modal) {
+    // In the cinematic shell every scene is ALREADY a full-screen interruption,
+    // so a scene node's `modal: true` has nothing left to add: it puts a card of
+    // the same room on top of the room. Eleven Streets nodes carry that flag,
+    // and in the shell they play like any other scene.
+    //
+    // `messages` and `call` keep their modals. Those are phone interfaces rather
+    // than rooms — the point of them is that they interrupt the scene — and
+    // `document` and `payment_request` are the same kind of object.
+    final suppressModal =
+        widget.district.usesCinematicShell && presentation?.type == 'scene';
+
+    if (presentation != null && presentation.modal && !suppressModal) {
       switch (presentation.type) {
         case 'document':
           await showDocumentModal(context,
