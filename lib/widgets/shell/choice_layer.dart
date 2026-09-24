@@ -53,38 +53,76 @@ class ChoiceLayer extends StatelessWidget {
           reverse: true,
           physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final choice in choices)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: TweenAnimationBuilder<double>(
-                    key: ValueKey<String>('choice-$nodeId-${choice.id}'),
-                    tween: Tween<double>(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) => Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, (1 - value) * 10),
-                        child: child,
-                      ),
-                    ),
-                    child: _GlassChoice(
-                      label: choice.label,
-                      accent: accent,
-                      selected: selectedId == choice.id,
-                      disabled: locked,
-                      onTap: () => onTap(choice),
-                    ),
-                  ),
-                ),
-            ],
+          child: ChoiceStack(
+            choices: choices,
+            nodeId: nodeId,
+            onTap: onTap,
+            accent: accent,
+            selectedId: selectedId,
+            locked: locked,
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The tiles themselves, without a position or a scroll of their own.
+///
+/// Extracted so the seven-choice finale can host the same tiles INSIDE the
+/// narration panel: that node has no figure, so a floating band would leave
+/// them hanging in an empty room, and the choosing is the whole scene. Two
+/// placements, one set of tiles — the alternative was a second choice widget
+/// that would drift from this one.
+class ChoiceStack extends StatelessWidget {
+  const ChoiceStack({
+    super.key,
+    required this.choices,
+    required this.nodeId,
+    required this.onTap,
+    required this.accent,
+    this.selectedId,
+    this.locked = false,
+  });
+
+  final List<ScenarioChoice> choices;
+  final String nodeId;
+  final ValueChanged<ScenarioChoice> onTap;
+  final Color accent;
+  final String? selectedId;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final choice in choices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey<String>('choice-$nodeId-${choice.id}'),
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) => Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - value) * 10),
+                  child: child,
+                ),
+              ),
+              child: _GlassChoice(
+                label: choice.label,
+                accent: accent,
+                selected: selectedId == choice.id,
+                disabled: locked,
+                onTap: () => onTap(choice),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

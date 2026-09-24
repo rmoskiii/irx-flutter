@@ -95,16 +95,26 @@ class SpeechBubble extends StatelessWidget {
       top: top,
       width: bubbleWidth,
       height: bubbleHeight,
-      child: CustomPaint(
-        painter: _BubblePainter(toRight: toRight, tailY: tailY),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            toRight ? _tailWidth + _padH : _padH,
-            _padV,
-            toRight ? _padH : _tailWidth + _padH,
-            _padV,
+      child: TweenAnimationBuilder<double>(
+        // fades in on its own, because the shell holds it back behind a
+        // character introduction and it must not simply appear the instant
+        // the lower-third clears
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+        builder: (context, value, child) =>
+            Opacity(opacity: value, child: child),
+        child: CustomPaint(
+          painter: _BubblePainter(toRight: toRight, tailY: tailY),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              toRight ? _tailWidth + _padH : _padH,
+              _padV,
+              toRight ? _padH : _tailWidth + _padH,
+              _padV,
+            ),
+            child: Text(text, style: style, maxLines: 6),
           ),
-          child: Text(text, style: style, maxLines: 6),
         ),
       ),
     );

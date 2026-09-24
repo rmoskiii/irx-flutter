@@ -141,6 +141,11 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   List<ScenarioChoice> _currentChoices = [];
   String _currentNodeId = '';
   ScenarioNode? _currentNode;
+
+  /// The ripple of the choice just made, while the next node is in flight. The
+  /// transcript keeps its own copy; the shell has no transcript to put it in,
+  /// so it shows here and is cleared the moment the next node reveals.
+  String? _currentBeat;
   StatDelta _runningTotal = const StatDelta();
 
   /// Opaque scenario state — initialised by the backend from stateSchema,
@@ -434,6 +439,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       _currentChoices = [];
       _selectedChoiceId = null;
       _currentNode = node;
+      _currentBeat = null;
     });
 
     // In the cinematic shell every scene is ALREADY a full-screen interruption,
@@ -619,7 +625,10 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
       // message. Never merged into the next node's message (it would
       // inherit SceneCard styling and read as spoken dialogue).
       if (result.beat != null && result.beat!.isNotEmpty) {
-        setState(() => _transcript.add(_TranscriptEntry.beat(result.beat!)));
+        setState(() {
+          _transcript.add(_TranscriptEntry.beat(result.beat!));
+          _currentBeat = result.beat;
+        });
         _scrollToBottom();
         await Future.delayed(readingHoldForText(result.beat!));
         if (!mounted) return;
@@ -860,7 +869,9 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
 
           return CinematicShell(
             district: district,
+            scenarioId: snapshot.data?.scenarioId ?? _scenario?.scenarioId ?? '',
             node: _currentNode,
+            beat: _currentBeat,
             choices: _currentChoices,
             selectedChoiceId: _selectedChoiceId,
             locked: _choiceInputLocked,

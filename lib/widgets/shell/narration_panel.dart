@@ -10,6 +10,11 @@ import 'package:flutter/material.dart';
 /// long one. The scene behind it does not move either way — [height] is decided
 /// by the shell, which owns the geometry, so the panel has no opinion about how
 /// much room it gets.
+///
+/// Its header carries who is in the room. That is the persistent half of the
+/// character treatment: the lower-third introduces someone once, and from then
+/// on their name and relationship are here for as long as the interaction
+/// lasts. The location is still shown, demoted — the person is the information.
 class NarrationPanel extends StatelessWidget {
   const NarrationPanel({
     super.key,
@@ -20,13 +25,18 @@ class NarrationPanel extends StatelessWidget {
     required this.onDrag,
     required this.accent,
     required this.bottomInset,
-    this.caption,
+    required this.labelFont,
+    this.characterName,
+    this.relationship,
+    this.location,
+    this.beat,
+    this.footer,
   });
 
   final String text;
 
   /// Resolved height in logical pixels, floor or expanded. The shell computes
-  /// it; see CinematicShell.panelHeight.
+  /// it; see CinematicShell.panelFloor.
   final double height;
 
   final bool expanded;
@@ -43,14 +53,35 @@ class NarrationPanel extends StatelessWidget {
   /// itself runs to the bottom of the screen.
   final double bottomInset;
 
-  /// The scene's location line — "The kitchen", "Outside the shops, eight".
-  final String? caption;
+  /// The district's label face, shared with the day chip and the lower-third.
+  final TextStyle Function() labelFont;
+
+  /// Who the beat belongs to, and what they are to the player. Both null on a
+  /// node with no character — an empty room, a montage — and then the location
+  /// leads instead.
+  final String? characterName;
+  final String? relationship;
+
+  final String? location;
+
+  /// The ripple of the choice just made, held for its reading time before the
+  /// next node lands. Shown under the prose rather than replacing it: the scene
+  /// has not changed yet, so neither should the passage describing it.
+  final String? beat;
+
+  /// Choices hosted inside the panel instead of floating over the artwork. Used
+  /// for the seven-choice finale, where the room is empty and the choosing IS
+  /// the scene.
+  final Widget? footer;
 
   static const _radius = 22.0;
 
   @override
   Widget build(BuildContext context) {
-    final label = caption?.trim() ?? '';
+    final name = characterName?.trim() ?? '';
+    final rel = relationship?.trim() ?? '';
+    final place = location?.trim() ?? '';
+    final ripple = beat?.trim() ?? '';
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
@@ -96,9 +127,54 @@ class NarrationPanel extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (label.isNotEmpty) ...[
+                        if (name.isNotEmpty) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  name.toUpperCase(),
+                                  style: labelFont().copyWith(
+                                    fontSize: 13,
+                                    letterSpacing: 1.8,
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                              if (place.isNotEmpty) ...[
+                                const SizedBox(width: 12),
+                                Flexible(
+                                  child: Text(
+                                    place,
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      letterSpacing: 0.4,
+                                      color: Colors.white
+                                          .withValues(alpha: 0.42),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (rel.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                rel,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color:
+                                      Colors.white.withValues(alpha: 0.55),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                        ] else if (place.isNotEmpty) ...[
                           Text(
-                            label.toUpperCase(),
+                            place.toUpperCase(),
                             style: TextStyle(
                               fontSize: 10.5,
                               letterSpacing: 1.6,
@@ -116,6 +192,33 @@ class NarrationPanel extends StatelessWidget {
                             color: Colors.white.withValues(alpha: 0.94),
                           ),
                         ),
+                        if (ripple.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.only(left: 12),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                left: BorderSide(
+                                  color: accent.withValues(alpha: 0.55),
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              ripple,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                height: 1.5,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.white.withValues(alpha: 0.80),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (footer != null) ...[
+                          const SizedBox(height: 18),
+                          footer!,
+                        ],
                       ],
                     ),
                   ),
