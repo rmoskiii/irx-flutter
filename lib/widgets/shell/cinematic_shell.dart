@@ -41,6 +41,7 @@ class CinematicShell extends StatefulWidget {
     required this.onExit,
     this.selectedChoiceId,
     this.beat,
+    this.onBeatContinue,
     this.locked = false,
     this.busy = false,
   });
@@ -62,6 +63,11 @@ class CinematicShell extends StatefulWidget {
   /// The ripple of the choice just made, held in the panel for its reading
   /// time while the server resolves the next node. Null the rest of the time.
   final String? beat;
+
+  /// Called when the player taps through a beat. The screen is waiting on it
+  /// before revealing the next node, so a beat is never overtaken by the scene
+  /// it leads into.
+  final VoidCallback? onBeatContinue;
 
   /// Input is closed — a choice is committing, or the turn is in flight.
   final bool locked;
@@ -91,8 +97,13 @@ class CinematicShell extends StatefulWidget {
 /// end to end, which is a beat longer than it takes to read six words and
 /// short enough that nobody reaches to dismiss it.
 const _introDelay = Duration(milliseconds: 250);
-const _introHold = Duration(milliseconds: 2200);
 const _introFade = Duration(milliseconds: 350);
+
+/// How long an introduction stays up: long enough to read, scaled to the line
+/// the way every other hold in the app is. A flat 2.2 seconds gave Jay's
+/// twenty words the same time as a four-word line, which is to say not enough.
+Duration _introHoldFor(String line) =>
+    readingHoldForText(line, minMs: 2800, maxMs: 5200);
 
 /// At or above this many choices the tiles move into the panel. Only
 /// s1d7_action reaches it, and it is the one node with nobody in the room:
@@ -106,6 +117,20 @@ class _CinematicShellState extends State<CinematicShell> {
   /// scope on purpose: a resume on day 4 may introduce Jay again, which costs a
   /// player two seconds and costs us no persistence field.
   final Set<String> _introduced = <String>{};
+
+  /// Characters who have already had a line of context from being NAMED while
+  /// off screen. Separate from [_introduced]: someone texting you is not
+  /// someone standing in front of you, so being referenced does not use up
+  /// their physical introduction, and vice versa.
+  final Set<String> _referenced = <String>{};
+
+  /// The one off-screen person this node gives context for, if any.
+  CastMember? _reference;
+
+  /// The last artwork shown. Phone nodes — messages, calls — carry none, and a
+  /// text arrives in the room you are standing in, not on a black screen; so
+  /// the stage keeps the last picture until a node brings its own.
+  SceneRender? _lastRender;
   CastMember? _intro;
   bool _introVisible = false;
   final List<Timer> _introTimers = <Timer>[];
@@ -116,22 +141,31 @@ class _CinematicShellState extends State<CinematicShell> {
   int _lineIndex = 0;
   Timer? _lineTimer;
 
+  void _rememberRender() {
+    final r = widget.node?.render;
+    if (r != null) _lastRender = r;
+  }
+
   @override
   void initState() {
     super.initState();
+    _rememberRender();
     _startDialogue();
     _startIntroduction();
+    _startReference();
   }
 
   @override
   void didUpdateWidget(covariant CinematicShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.node?.nodeId != widget.node?.nodeId) {
+      _rememberRender();
       // a new node starts at the floor: the panel's height is a property of the
       // passage being read, not a setting the player carries between beats
       if (_expanded) setState(() => _expanded = false);
       _startDialogue();
       _startIntroduction();
+      _startReference();
     }
   }
 
@@ -153,7 +187,12 @@ class _CinematicShellState extends State<CinematicShell> {
   /// never whoever happens to be standing in the artwork. A figure in the
   /// background is scenery until the writing makes them the point.
   CastMember? get _castForNode {
-    final data = widget.node?.presentation?.data;
+    final presentation = widget.node?.presentation;
+    // Only a SCENE puts someone in the room. A messages or call node names a
+    // character too — Amara's day-3 thread does — and treating that as a
+    // physical appearance would fire her lower-third behind a phone screen.
+    if (presentation?.type != 'scene') return null;
+    final data = presentation?.data;
     final character = data?['character'];
     if (character is! Map) return null;
     return CastCopy.lookup(widget.scenarioId, character['name'] as String?);
@@ -162,6 +201,25 @@ class _CinematicShellState extends State<CinematicShell> {
   /// Fires the lower-third the first time a character carries a beat. Runs the
   /// three phases on timers rather than an AnimationController because nothing
   /// interrupts it and nothing reverses it: it is a cue, not a control.
+  /// Context for someone who is named but not in the room — Tunde's text in a
+  /// Jay scene. Once per person, only until they have been met, and at most
+  /// one per node: the aim is orientation, not a cast list, so a passage that
+  /// names five people gives context for the first stranger and leaves the
+  /// rest to the scenes they turn up in.
+  void _startReference() {
+    _reference = null;
+    final node = widget.node;
+    if (node == null || node.render?.montage != null) return;
+    final present = _castForNode?.name;
+    for (final member in CastCopy.mentionedIn(widget.scenarioId, node.message)) {
+      if (member.name == present) continue;
+      if (_introduced.contains(member.name)) continue;
+      if (!_referenced.add(member.name)) continue;
+      _reference = member;
+      return;
+    }
+  }
+
   void _startIntroduction() {
     _clearIntroTimers();
     if (_intro != null || _introVisible) {
@@ -179,10 +237,11 @@ class _CinematicShellState extends State<CinematicShell> {
     _introTimers.add(Timer(_introDelay, () {
       if (mounted) setState(() => _introVisible = true);
     }));
-    _introTimers.add(Timer(_introDelay + _introHold, () {
+    final hold = _introHoldFor(member.intro);
+    _introTimers.add(Timer(_introDelay + hold, () {
       if (mounted) setState(() => _introVisible = false);
     }));
-    _introTimers.add(Timer(_introDelay + _introHold + _introFade, () {
+    _introTimers.add(Timer(_introDelay + hold + _introFade, () {
       if (mounted) setState(() => _intro = null);
     }));
   }
@@ -213,6 +272,8 @@ class _CinematicShellState extends State<CinematicShell> {
     // an introduction and a line of dialogue want the same strip of screen;
     // the introduction goes first and the bubble waits for it to leave
     if (_intro != null) return null;
+    // nor while a beat has the panel: one thing to read at a time
+    if (widget.beat != null) return null;
     final lines = _lines;
     if (lines.isEmpty) return null;
     final line = lines[math.min(_lineIndex, lines.length - 1)];
@@ -296,8 +357,8 @@ class _CinematicShellState extends State<CinematicShell> {
                     background: district.backgroundGradient.last,
                   )
                 : SceneStage(
-                    svg: node?.render?.svg,
-                    cacheKey: node?.render?.cacheKey,
+                    svg: (node?.render ?? _lastRender)?.svg,
+                    cacheKey: (node?.render ?? _lastRender)?.cacheKey,
                     background: district.backgroundGradient.last,
                     semanticLabel: caption,
                   ),
@@ -342,9 +403,10 @@ class _CinematicShellState extends State<CinematicShell> {
             right: 0,
             bottom: floor + 12,
             child: IgnorePointer(
-              ignoring: panelOpen || _intro != null,
+              ignoring: panelOpen || _intro != null || widget.beat != null,
               child: AnimatedOpacity(
-                opacity: (panelOpen || _intro != null) ? 0 : 1,
+                opacity:
+                    (panelOpen || _intro != null || widget.beat != null) ? 0 : 1,
                 duration: const Duration(milliseconds: 200),
                 child: widget.busy && widget.choices.isEmpty
                     ? Align(
@@ -393,6 +455,9 @@ class _CinematicShellState extends State<CinematicShell> {
               relationship: cast?.tag,
               location: caption,
               beat: widget.beat,
+              onBeatContinue: widget.onBeatContinue,
+              referenceName: _reference?.name,
+              referenceTag: _reference?.tag,
               footer: choicesInPanel
                   ? ChoiceStack(
                       choices: widget.choices,

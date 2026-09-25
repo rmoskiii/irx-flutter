@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../content/streets_cast.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
@@ -21,12 +22,17 @@ class CallModal extends StatefulWidget {
   final String message;
   final List<ScenarioChoice> choices;
 
+  /// Only used to look up the caller's player-facing relationship in districts
+  /// that have approved cast copy.
+  final String? scenarioId;
+
   const CallModal({
     super.key,
     required this.district,
     required this.data,
     required this.message,
     required this.choices,
+    this.scenarioId,
   });
 
   @override
@@ -91,7 +97,14 @@ class _CallModalState extends State<CallModal> {
   @override
   Widget build(BuildContext context) {
     final callerName = widget.data['callerName'] as String? ?? '';
-    final callerRole = widget.data['callerRole'] as String? ?? '';
+    // an authored role wins; otherwise, in the shell, the caller's approved
+    // relationship - the line a contact card would show
+    final authoredRole = widget.data['callerRole'] as String? ?? '';
+    final callerRole = authoredRole.isNotEmpty
+        ? authoredRole
+        : (widget.district.usesCinematicShell
+            ? CastCopy.lookup(widget.scenarioId, callerName)?.tag ?? ''
+            : '');
     final callerNumber = widget.data['callerNumber'] as String? ?? '';
     final status = widget.data['status'] as String? ?? 'On call';
     final district = widget.district;
@@ -406,6 +419,7 @@ Future<ScenarioChoice?> showCallModal(
   required Map<String, dynamic> data,
   required String message,
   required List<ScenarioChoice> choices,
+  String? scenarioId,
 }) {
   return showDialog<ScenarioChoice>(
     context: context,
@@ -416,6 +430,7 @@ Future<ScenarioChoice?> showCallModal(
       data: data,
       message: message,
       choices: choices,
+      scenarioId: scenarioId,
     ),
   );
 }

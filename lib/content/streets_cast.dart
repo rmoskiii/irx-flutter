@@ -80,12 +80,13 @@ class CastCopy {
     ),
     'Amara': CastMember(
       name: 'Amara',
-      tag: 'Your girlfriend... kinda',
-      // Placeholder, and knowingly so: the authored material establishes only
-      // that she texts when you go quiet and that you have not answered. The
-      // relationship itself has not been written yet, and this line stands in
-      // until it is.
-      intro: 'Amara. Your girlfriend... kinda',
+      tag: 'Someone trying to reach you',
+      // Deliberately no relationship label. The authored material establishes
+      // only this: s1d1_close, "you disappeared again" / "you alright?" -
+      // "Twenty minutes between them. You haven't answered either." What she
+      // is to the player has not been written, so the chrome does not say.
+      intro: "Someone who's been trying to reach you. You haven't answered "
+          'her last two messages.',
     ),
   };
 
@@ -98,5 +99,25 @@ class CastCopy {
     final key = name?.trim();
     if (key == null || key.isEmpty) return null;
     return _theStreets[key];
+  }
+
+  /// Cast members named in a passage, in the order they are first named.
+  ///
+  /// Whole-word, case-sensitive, against six known names — which is why it can
+  /// be this simple: none of them is also an ordinary English word, and "Mum"
+  /// in the prose is never matched to Bola because it is not her name. Used
+  /// only to decide whether someone who is not in the room needs a line of
+  /// context the first time they come up.
+  static List<CastMember> mentionedIn(String? scenarioId, String? text) {
+    if (scenarioId != 'the_streets' || text == null || text.isEmpty) {
+      return const [];
+    }
+    final found = <int, CastMember>{};
+    for (final member in _theStreets.values) {
+      final match = RegExp('\\b${member.name}\\b').firstMatch(text);
+      if (match != null) found[match.start] = member;
+    }
+    final order = found.keys.toList()..sort();
+    return [for (final i in order) found[i]!];
   }
 }

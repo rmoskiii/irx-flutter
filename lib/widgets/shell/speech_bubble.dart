@@ -39,7 +39,6 @@ class SpeechBubble extends StatelessWidget {
   final double bottomLimit;
 
   static const double _tailWidth = 12;
-  static const double _tailHeight = 15;
   static const double _radius = 14;
   static const double _padH = 14;
   static const double _padV = 11;
@@ -68,13 +67,25 @@ class SpeechBubble extends StatelessWidget {
       color: Colors.white.withValues(alpha: 0.97),
     );
 
+    // Measured with the SAME text scale the Text widget below will render at.
+    // Without it, a player running larger system type gets a bubble sized for
+    // the default and a line cut off at the bottom.
+    final scaler = MediaQuery.textScalerOf(context);
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
+      textScaler: scaler,
       maxLines: 6,
     )..layout(maxWidth: contentWidth);
 
-    final bubbleWidth = painter.width + _padH * 2 + _tailWidth;
+    // The text box is the measured width rounded UP, plus slack. Sizing it to
+    // exactly painter.width left the Text re-wrapping at that same width minus
+    // subpixel rounding: the longest line no longer fitted, wrapped, and was
+    // cut by a box one line too short ("She likes the"), or lost its last
+    // glyph ("Alrigh"). Two points of slack is invisible and ends both.
+    final textWidth = math.min(contentWidth, painter.width.ceilToDouble() + 2);
+    final bubbleWidth = textWidth + _padH * 2 + _tailWidth;
+    // used to POSITION the bubble only — its real height comes from its content
     final bubbleHeight = painter.height + _padV * 2;
 
     // centred on the mouth, then pushed clear of the status bar and the panel
@@ -90,11 +101,14 @@ class SpeechBubble extends StatelessWidget {
     // corner's width away from either end so it never grows out of the radius
     final tailY = (mouth.dy - top).clamp(_radius + 4, bubbleHeight - _radius - 4);
 
+    // No height: the measurement places the bubble, the content sizes it. If a
+    // line ever wraps further than measured, the bubble grows downward rather
+    // than cutting the words off — a slightly lower bubble is a cosmetic
+    // defect, a missing half-sentence is a broken scene.
     return Positioned(
       left: left,
       top: top,
       width: bubbleWidth,
-      height: bubbleHeight,
       child: TweenAnimationBuilder<double>(
         // fades in on its own, because the shell holds it back behind a
         // character introduction and it must not simply appear the instant
@@ -113,7 +127,10 @@ class SpeechBubble extends StatelessWidget {
               toRight ? _padH : _tailWidth + _padH,
               _padV,
             ),
-            child: Text(text, style: style, maxLines: 6),
+            child: SizedBox(
+              width: textWidth,
+              child: Text(text, style: style, maxLines: 6, softWrap: true),
+            ),
           ),
         ),
       ),

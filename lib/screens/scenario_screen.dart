@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../content/scenario_intros.dart';
@@ -146,6 +148,18 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
   /// transcript keeps its own copy; the shell has no transcript to put it in,
   /// so it shows here and is cleared the moment the next node reveals.
   String? _currentBeat;
+
+  /// Released when the player taps through a beat. In the shell a beat holds
+  /// until then — no timer — and the next node, already fetched, waits behind
+  /// it. The transcript districts keep their timed hold.
+  Completer<void>? _beatGate;
+
+  void _continueFromBeat() {
+    final gate = _beatGate;
+    if (gate == null || gate.isCompleted) return;
+    setState(() => _currentBeat = null);
+    gate.complete();
+  }
   StatDelta _runningTotal = const StatDelta();
 
   /// Opaque scenario state — initialised by the backend from stateSchema,
@@ -476,6 +490,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             data: presentation.data,
             message: node.message ?? '',
             choices: node.choices,
+            scenarioId: _scenario?.scenarioId,
           );
           if (!mounted || selectedCall == null) return;
           await _commitModalChoice(node, selectedCall);
@@ -499,6 +514,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             data: presentation.data,
             thread: node.thread ?? const [],
             choices: node.choices,
+            scenarioId: _scenario?.scenarioId,
           );
           if (!mounted || selectedThread == null) return;
           await _commitModalChoice(node, selectedThread);
@@ -630,7 +646,13 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
           _currentBeat = result.beat;
         });
         _scrollToBottom();
-        await Future.delayed(readingHoldForText(result.beat!));
+        if (widget.district.usesCinematicShell) {
+          _beatGate = Completer<void>();
+          await _beatGate!.future;
+          _beatGate = null;
+        } else {
+          await Future.delayed(readingHoldForText(result.beat!));
+        }
         if (!mounted) return;
       }
 
@@ -872,6 +894,7 @@ class _ScenarioScreenState extends State<ScenarioScreen> {
             scenarioId: snapshot.data?.scenarioId ?? _scenario?.scenarioId ?? '',
             node: _currentNode,
             beat: _currentBeat,
+            onBeatContinue: _continueFromBeat,
             choices: _currentChoices,
             selectedChoiceId: _selectedChoiceId,
             locked: _choiceInputLocked,

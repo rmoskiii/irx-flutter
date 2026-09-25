@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import '../content/streets_cast.dart';
 import '../models/scenario.dart';
 import '../theme/app_theme.dart';
 import '../theme/district_theme.dart';
@@ -30,7 +31,13 @@ class MessagesCard extends StatelessWidget {
     required this.contactRole,
     required this.thread,
     this.revealedSegments,
+    this.tagFor,
   });
+
+  /// Player-facing relationship for a sender, or null. Supplied only for
+  /// districts with approved cast copy; everyone else keeps the authored
+  /// contact role exactly as before.
+  final String? Function(String name)? tagFor;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +58,14 @@ class MessagesCard extends StatelessWidget {
           child: _ReceivedBubble(
             district: district,
             sender: showSender ? segment.from : null,
+            // the header already names the thread's contact; a DIFFERENT
+            // sender - Amara, in a thread that belongs to an unknown number -
+            // is the one who would otherwise arrive with no context at all
+            tag: (showSender &&
+                    segment.from != null &&
+                    segment.from != contactName)
+                ? tagFor?.call(segment.from!)
+                : null,
             text: segment.text ?? '',
           ),
         ));
@@ -66,7 +81,11 @@ class MessagesCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ThreadHeader(district: district, name: contactName, role: contactRole),
+        _ThreadHeader(
+          district: district,
+          name: contactName,
+          role: tagFor?.call(contactName) ?? contactRole,
+        ),
         const SizedBox(height: 14),
         ...rendered,
       ],
@@ -141,12 +160,14 @@ class _ThreadHeader extends StatelessWidget {
 class _ReceivedBubble extends StatelessWidget {
   final DistrictTheme district;
   final String? sender;
+  final String? tag;
   final String text;
 
   const _ReceivedBubble({
     required this.district,
     required this.sender,
     required this.text,
+    this.tag,
   });
 
   @override
@@ -161,13 +182,27 @@ class _ReceivedBubble extends StatelessWidget {
             if (sender != null)
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 4),
-                child: Text(
-                  sender!.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 9,
-                    letterSpacing: 1.1,
-                    fontWeight: FontWeight.w600,
-                    color: district.accent.withValues(alpha: 0.55),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: sender!.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 9,
+                          letterSpacing: 1.1,
+                          fontWeight: FontWeight.w600,
+                          color: district.accent.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      if (tag != null && tag!.isNotEmpty)
+                        TextSpan(
+                          text: '  ·  $tag',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Colors.white.withValues(alpha: 0.45),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -228,6 +263,7 @@ Future<ScenarioChoice?> showMessagesModal(
   required Map<String, dynamic> data,
   required List<ThreadSegment> thread,
   required List<ScenarioChoice> choices,
+  String? scenarioId,
 }) {
   return showDialog<ScenarioChoice>(
     context: context,
@@ -238,6 +274,7 @@ Future<ScenarioChoice?> showMessagesModal(
       data: data,
       thread: thread,
       choices: choices,
+      scenarioId: scenarioId,
     ),
   );
 }
@@ -247,12 +284,14 @@ class _MessagesModal extends StatefulWidget {
   final Map<String, dynamic> data;
   final List<ThreadSegment> thread;
   final List<ScenarioChoice> choices;
+  final String? scenarioId;
 
   const _MessagesModal({
     required this.district,
     required this.data,
     required this.thread,
     required this.choices,
+    this.scenarioId,
   });
 
   @override
@@ -315,6 +354,7 @@ class _MessagesModalState extends State<_MessagesModal> {
     final mood = character['mood'] as String? ?? '';
     final moodStyle = MoodPalette.of(mood);
     final visual = SceneVisualStyle.fromData(widget.district, widget.data);
+    final shell = widget.district.usesCinematicShell;
     final typingSegment =
         _typingIndex == null ? null : widget.thread[_typingIndex!];
     final typingSender =
@@ -341,19 +381,30 @@ class _MessagesModalState extends State<_MessagesModal> {
                     ),
                   ),
                 ),
-              SceneSettingPlate(
-                visual: visual,
-                mood: moodStyle,
-                district: widget.district,
-                compact: true,
-              ),
-              const SizedBox(height: 14),
+              // The setting plate stands in for a room when there is no
+              // artwork. In the cinematic shell the room is already on screen
+              // behind this dialog, so the plate is a coloured block that
+              // means nothing - and it is gone.
+              if (!shell) ...[
+                SceneSettingPlate(
+                  visual: visual,
+                  mood: moodStyle,
+                  district: widget.district,
+                  compact: true,
+                ),
+                const SizedBox(height: 14),
+              ],
               MessagesCard(
                 district: widget.district,
                 contactName: character['name'] as String? ?? '',
-                contactRole: character['role'] as String? ?? '',
+                // in the shell the authored role never reaches the player:
+                // those strings are shorthand for the writer, not context
+                contactRole: shell ? '' : character['role'] as String? ?? '',
                 thread: widget.thread,
                 revealedSegments: _revealed,
+                tagFor: shell
+                    ? (name) => CastCopy.lookup(widget.scenarioId, name)?.tag
+                    : null,
               ),
               if (typingSegment != null && typingSegment.isBubble)
                 Padding(
